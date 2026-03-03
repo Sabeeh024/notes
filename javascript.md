@@ -133,9 +133,137 @@ JavaScript runs on one main thread.
 - I/O
 - UI events
 
----
+# 5. Asynchronous Patterns in JavaScript: Callbacks → Promises → Async/Await
 
-# 5. Event Bubbling & Delegation
+JavaScript is single-threaded, but modern applications rely heavily on asynchronous operations (e.g., API calls, timers, file reading). Over time, the patterns for handling async code have evolved.
+
+## Callbacks
+
+The original way to handle async tasks in JavaScript.
+
+A callback is a function passed as an argument to another function to be executed later.
+
+```js
+function fetchData(callback) {
+  setTimeout(() => {
+    callback("Data received");
+  }, 1000);
+}
+
+fetchData((data) => {
+  console.log(data);
+});
+```
+
+### Issues with Callbacks
+
+#### Callback Hell / Pyramid of Doom
+
+Nested callbacks for sequential async tasks become hard to read and maintain.
+
+```js
+loginUser(user, (err, userData) => {
+  if (err) return handleError(err);
+  getOrders(userData, (err, orders) => {
+    if (err) return handleError(err);
+    getShipment(orders, (err, shipment) => {
+      if (err) return handleError(err);
+      console.log("Shipment:", shipment);
+    });
+  });
+});
+```
+
+#### Inversion of Control
+
+Outer code loses control over when the callback will run.
+
+Callback may be called multiple times or never, leading to bugs.
+
+#### Error Handling
+
+Errors must be manually passed and handled (err first pattern), which can be inconsistent.
+
+### Promises
+
+Were introduced to flatten nested callbacks and standardize async behavior.
+A Promise represents a value that may be available now, later, or never.
+
+States: pending → fulfilled / rejected.
+
+```js
+const fetchData = new Promise((resolve, reject) => {
+setTimeout(() => resolve("Data received"), 1000);
+});
+
+fetchData
+.then((data) => console.log(data))
+.catch((err) => console.error(err));
+Advantages over Callbacks
+```
+
+#### Chaining
+
+`.then()` allows sequential async operations without deep nesting.
+
+```js
+loginUser(user)
+  .then(getOrders)
+  .then(getShipment)
+  .then(console.log)
+  .catch(handleError);
+```
+
+#### Error Handling
+
+`.catch()` can handle errors for the entire chain.
+
+#### Composability
+
+Promise.all, Promise.race allow handling multiple async tasks easily.
+
+#### Limitations
+
+Still slightly verbose for long sequences.
+
+`.then()` chains can get long → harder to read.
+
+Can still be tricky with complex conditional logic.
+
+### Async/Await
+
+were introduce for a more synchronous-looking async code.
+
+Built on Promises, so all advantages of Promises remain.
+
+```js
+async function fetchUserShipment(user) {
+  try {
+    const userData = await loginUser(user);
+    const orders = await getOrders(userData);
+    const shipment = await getShipment(orders);
+    console.log(shipment);
+  } catch (err) {
+    handleError(err);
+  }
+}
+
+fetchUserShipment("Sabeeh");
+```
+
+#### Advantages
+
+- Readable / Linear Code: Looks like synchronous code → easier to follow.
+- Error Handling: standard try/catch blocks.
+- Debuggable: Easier stack traces compared to nested .then() chains.
+
+#### Things to Remember
+
+- await only works inside async functions.
+- Returns a Promise.
+- Can combine with Promise.all for parallel async operations.
+
+# 6. Event Bubbling & Delegation
 
 ## Event Propagation Phases
 
@@ -174,7 +302,7 @@ It works because of event bubbling.
 Benefits: - Better memory usage - Works for dynamic elements - Cleaner
 architecture
 
-# 6. Browser Rendering Pipeline
+# 7. Browser Rendering Pipeline
 
 Frame (\~16ms at 60fps):
 
@@ -191,7 +319,7 @@ Pixel Pipeline: JS → Style → Layout → Paint → Composite
 
 If JS blocks too long → frame drops.
 
-# 7. Rendering Optimization
+# 8. Rendering Optimization
 
 ## Minimize Reflow
 
@@ -227,9 +355,9 @@ for (...) {
 
 Syncs animations with browser refresh rate.
 
-# 8. Prototypal Inheritance
+# 9. Prototypal Inheritance
 
-## \[\[Prototype\]\]
+## `[[Prototype]]`
 
 Internal link to another object.
 
@@ -281,12 +409,12 @@ console.log(john.species); // "Human"
 console.log(john.__proto__ === Person.prototype); // true
 ```
 
-# 9. Arrow vs Regular Functions
+# 10. Arrow vs Regular Functions
 
 Arrow Functions: - No own `this` - No `prototype` - Cannot use `new` -
 No own `arguments`
 
-# 10. Shallow vs Deep Copy
+# 11. Shallow vs Deep Copy
 
 ## Shallow Copy
 
@@ -313,7 +441,7 @@ JSON.parse(JSON.stringify(obj));
 
 Limitations: - Fails for Date, Functions, undefined, Map, Set
 
-# 11. Functional Programming
+# 12. Functional Programming
 
 ## Pure Functions
 
@@ -329,7 +457,7 @@ or just say they can be used as values
 
 A function that either takes a function as argument or returns a function
 
-# 12. Performance Optimization
+# 13. Performance Optimization
 
 ## Debounce
 
@@ -362,13 +490,13 @@ Removes unnecessary characters from code without changing its functionality.
 
 ---
 
-2. Design Patterns
+Design Patterns
 Singleton
 Factory
 Observer
 Module pattern
-3. Currying vs Partial Application
-4. Map vs WeakMap
+Currying vs Partial Application
+Map vs WeakMap
 WeakMap keys are garbage collectible.
 Callback hell, promises, async await
 Implement Promise from scratch

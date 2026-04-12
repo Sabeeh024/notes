@@ -1,0 +1,612 @@
+# 📘 React Core Concepts (Clean & Structured Notes)
+
+## 🧠 What is React?
+
+React is a JavaScript library for building user interfaces using **reusable components**.
+
+### 🌐 Cross-Platform Rendering
+
+React uses different renderers depending on the platform:
+
+* **React DOM** → Web applications
+* **React Native** → Mobile applications
+
+---
+
+## 🏗️ Core Architecture Overview
+
+React is built around two key ideas:
+
+* **Unidirectional Data Flow**
+* **Component-Based Architecture**
+
+---
+
+## 🔄 Unidirectional Data Flow
+
+Data in React flows in **one direction only**:
+
+👉 **Parent → Child**
+
+### ✅ Benefits
+
+* **Predictable State Changes**
+  You always know where data comes from and how it changes.
+
+* **Easier Debugging**
+  Bugs are easier to trace because updates follow a single path.
+
+* **Better Control**
+  State is managed in a controlled way, avoiding random mutations.
+
+---
+
+## 🧩 Component-Based Architecture
+
+React applications are built by breaking the UI into **small, reusable, independent components**.
+
+> Think of your UI as a **tree of components**.
+
+### 🧱 Key Characteristics
+
+1. 🔁 Reusability: Components can be reused multiple times across the app
+2. 🔒 Encapsulation: Each component manages its own: UI (markup), State (data), Logic (behavior)
+3. 🧩 Composability: Small components can be combined to build complex UIs.
+
+---
+
+# 📘 React Elements (Clean & Structured Notes)
+
+## 🧠 What is a React Element?
+
+A **React Element** is a **plain JavaScript object** that describes what you want to see on the screen.
+
+---
+
+## 🔑 Key Characteristics
+
+* **Lightweight** → Just a JS object
+* **Immutable** → Cannot be changed after creation, to update UI → create a new element
+* **Descriptive** → Tells React what UI should look like
+* **Cheap to create** → Fast and efficient
+
+---
+
+## 🧱 Structure of an Element
+
+A React element has two main properties:
+
+```js
+{
+  type: string | Component,
+  props: {
+    // attributes + children
+  }
+}
+```
+
+* **type**
+
+  * String → DOM element (`'div'`, `'button'`)
+  * Function/Class → React component
+
+* **props**
+
+  * Attributes (className, id, etc.)
+  * Children (nested elements or text)
+
+---
+
+## 🌐 DOM Elements
+
+When `type` is a **string**, it represents a real DOM node.
+
+### Example:
+
+```js
+{
+  type: 'button',
+  props: {
+    className: 'btn',
+    children: 'Click Me'
+  }
+}
+```
+
+👉 Equivalent JSX:
+
+```jsx
+<button className="btn">Click Me</button>
+```
+
+---
+
+## 🧩 Component Elements
+
+When `type` is a **function or class**, it represents a React component.
+
+### Example:
+
+```js
+{
+  type: Button,
+  props: {
+    color: 'blue',
+    children: 'OK'
+  }
+}
+```
+
+👉 JSX:
+
+```jsx
+<Button color="blue">OK</Button>
+```
+
+--- 
+
+## 🧠 What is JSX?
+
+JSX (JavaScript XML) is a syntax extension for JavaScript that allows you to write HTML-like code inside JavaScript. JSX is **syntactic sugar** over `React.createElement`
+JSX is just JavaScript Objects:
+
+```jsx
+<button className="btn">Click</button>
+```
+
+Behind the scenes:
+
+```js
+{
+  type: 'button',
+  props: {
+    className: 'btn',
+    children: 'Click'
+  }
+}
+```
+
+Note: Gets compiled into `React.createElement()` calls
+```js
+React.createElement('button', null, 'Click');
+```
+
+---
+
+## 🧩 Core Rules of JSX
+
+1. Single Root Element: Every component must return **one parent element**.
+2. Close All Tags: All JSX tags must be properly closed.
+3. camelCase AttributesJSX uses **camelCase** for most attributes because it maps to JavaScript object properties.
+4. JavaScript Inside JSX: Use `{}` to embed JavaScript expressions.
+
+---
+
+# 🌑 Shadow DOM
+
+## What is it?
+Shadow DOM is a browser feature that lets you attach a **hidden, isolated DOM tree** to an element.
+
+It is mainly used in **Web Components**.
+
+---
+
+## 🔒 Features
+
+- **Encapsulation**: HTML, CSS, and JS are scoped
+- **Style isolation**: no CSS leakage in or out
+- **Reusability**: perfect for UI components
+
+Note Virtual DOM and Shadow DOM are both very different things
+
+---
+
+## 🌳 Virtual DOM (VDOM)
+
+### 🧠 What is VDOM?
+
+The **Virtual DOM** is a **lightweight JavaScript representation of the real DOM**.
+
+👉 Instead of directly manipulating the real DOM, React:
+
+1. Creates a virtual representation (VDOM)
+2. Compares updates
+3. Applies only necessary changes to the real DOM
+
+---
+
+## 🔁 Reconciliation
+
+### 🧠 What is Reconciliation?
+
+Reconciliation is the process React uses to determine what changes are needed to update the UI efficiently.
+
+React calls reconciliation which starts when you call ReactDOM.render() or setState(). By the end of the reconciliation, React knows the resulting DOM tree, and a renderer like react-dom or react-native applies the minimal set of changes necessary to update the DOM nodes (or the platform-specific views in case of React Native).
+
+## Diffing Algorithm
+
+The diffing algorithm is React’s O(n) heuristic used during reconciliation to compare two trees efficiently.
+
+It is based on these assumptions:
+
+1. Different element types produce different trees 
+2. Same type → reuse instance and update props
+3. Children are matched by position by default
+4. Keys override position and provide stable identity
+5. Comparison is done top-down (depth-first traversal)
+
+## 🧠 State & Render Tree Position
+
+### ⚠️ Important Concept
+
+> State is tied to a **position in the render tree**, NOT the component itself.
+
+### ✅ State Preservation Rule
+
+* Same component
+* Same position
+
+👉 State is preserved
+
+### Example
+
+```jsx id="z9r0z9"
+{isFancy ? (
+  <Counter isFancy={true} />
+) : (
+  <Counter isFancy={false} />
+)}
+```
+
+👉 Result:
+
+* Same component at same position
+* State is preserved ✅
+
+---
+
+# React Batching
+
+Batching is when React groups multiple state updates into a single re-render for better performance.
+
+---
+
+## Before (No Automatic Batching)
+
+Previously, React only batched updates inside **React event handlers**. Updates inside `setTimeout`, promises, or native event handlers were **not batched**.
+
+```js
+// Before: only React events were batched.
+setTimeout(() => {
+  setCount(c => c + 1);
+  setFlag(f => !f);
+  // React will render twice (no batching)
+}, 1000);
+```
+
+---
+
+## After (Automatic Batching)
+
+With automatic batching, updates inside:
+
+- setTimeout
+- Promises
+- Native event handlers
+- Any async code
+
+are now **batched automatically**.
+
+```js
+// After: updates are batched automatically.
+setTimeout(() => {
+  setCount(c => c + 1);
+  setFlag(f => !f);
+  // React will re-render only once (batched)
+}, 1000);
+```
+
+---
+
+## Opting Out of Batching
+
+You can force React to flush updates immediately using `flushSync`.
+
+```js
+import { flushSync } from "react-dom";
+
+flushSync(() => {
+  setCount(c => c + 1);
+});
+
+// DOM is updated immediately here
+```
+
+---
+
+useDeferredValue
+useDeferredValue is a hook that takes a value and returns a 'deferred' version of it. When the original value updates quickly (like a user typing), React will first render the UI with the old value to keep things responsive, and then—in the background—it will work on a new render with the new value
+
+2. How it works with Fiber (Under the Hood)
+This hook is a direct application of the Double Buffering and Lanes concepts: 
+Lane Switching: When the original value changes, React treats the immediate update (e.g., updating an input field) as a SyncLane (High Priority).
+The Background Pass: React then schedules a separate render for the deferred value in a TransitionLane (Low Priority).
+Interruptible Rendering: Because the deferred render is in a low-priority lane, React can interrupt it. If the user types another character while React is halfway through rendering a huge list with the "old" deferred value, React throws away that work and starts fresh with the latest character.
+
+4. Why use this instead of Debouncing/Throttling?
+Fixed Delays: Debouncing uses a fixed timer (e.g., 300ms). If your computer is fast, you're waiting 300ms for no reason. If it's slow, 300ms might not be enough.
+Adaptability: useDeferredValue has no fixed delay. It is "as fast as possible." On a powerful PC, the deferred update might happen in 10ms. On a slow phone, it might take 500ms. React adjusts based on the hardware
+
+Example 
+
+The Scenario
+Imagine a search bar where each keystroke filters a huge array. Without useDeferredValue, every letter you type triggers a heavy render, making the typing feel "laggy" or "stuck."
+1. The Code Example
+javascript
+import { useState, useDeferredValue, memo } from 'react';
+
+function App() {
+  const [query, setQuery] = useState("");
+  
+  // 1. Create a "lagging" version of the query
+  const deferredQuery = useDeferredValue(query);
+
+  return (
+    <div>
+      {/* 2. The Input uses the REAL query (High Priority) */}
+      <input 
+        value={query} 
+        onChange={(e) => setQuery(e.target.value)} 
+        placeholder="Type to search..."
+      />
+
+      {/* 3. The List uses the DEFERRED query (Low Priority) */}
+      <SlowList text={deferredQuery} />
+    </div>
+  );
+}
+
+// 4. Wrap the slow component in memo!
+// This tells React: "Only re-render if deferredQuery actually changes."
+const SlowList = memo(({ text }) => {
+  console.log(`Rendering list for: ${text}`);
+  
+  // Artificial delay: Imagine filtering 10,000 items here
+  const items = [];
+  for (let i = 0; i < 250; i++) {
+    items.push(<li key={i}>Result for {text} #{i}</li>);
+  }
+
+  return <ul>{items}</ul>;
+});
+
+2. How this works in the Fiber Tree (The "Why")
+High Priority Render: When you type "A", setQuery("A") happens immediately. React renders the <input> with "A". Because deferredQuery hasn't updated yet (it's deferred), the SlowList sees the old value and memo tells it to skip rendering.
+Result: The typing is instant and smooth.
+Low Priority Render (Background): Once the input is painted on the screen, React starts a second background render pass. In this pass, it updates deferredQuery to "A".
+Interrupting: If you type "B" while the background render for "A" is still happening:
+React aborts the work for "A".
+It handles the SyncLane for "B" in the input box.
+It then starts a new background pass for "B".
+3. Interview "Pro-Tip": Why use memo here?
+If you don't use memo for the SlowList, the example fails.
+Why? Without memo, SlowList would re-render every time the parent App renders (which is every keystroke).
+With memo: SlowList only re-renders when its props change. Since its prop is the deferredQuery, it stays quiet while the user is typing rapidly and only starts working when React "releases" the deferred value.
+4. How to show "Loading" state?
+In an interview, they might ask: "How does the user know the list is lagging?"
+You can compare the two values:
+javascript
+const isStale = query !== deferredQuery;
+
+<div style={{ opacity: isStale ? 0.5 : 1 }}>
+  <SlowList text={deferredQuery} />
+</div>
+Use code with caution.
+
+Logic: If query is "AB" but deferredQuery is still "A", it means the list is "stale" (loading). Fading the list slightly is a great UX pattern.
+
+---
+
+📒 React Fiber Architecture: Deep Dive Notes
+1. The Fiber Node Structure
+The "Fiber" is a plain JavaScript object representing a unit of work. It is both a pointer in a tree and a stack frame for a component.
+Navigation Pointers:
+child: Points to the first direct child.
+sibling: Points to the next node at the same level.
+return: Points to the parent (where the program returns after processing the fiber).
+Identification:
+type: The component (function/class) or the Host Component string (e.g., 'div').
+key: Unique identifier used to optimize list diffing.
+The "Double Buffer" Link:
+alternate: The "Mirror" node. If this is the Current fiber, the alternate is the Work-in-Progress (WIP) fiber, and vice versa.
+1. Prop Management & Optimization
+React uses two specific fields to decide if it can "bail out" (skip) a component to save CPU cycles.
+pendingProps: The incoming data. These are the props provided by the parent or the new state during the current render pass.
+memoizedProps: The "Last Known Good" data. These are the props used in the last successfully committed render.
+The Optimization Logic (beginWork phase):
+If (pendingProps === memoizedProps) (Shallow Comparison) + No State Change:
+→ Bailout! React reuses the existing output and skips the component’s children.
+1. The Rendering Lifecycle
+Phase 1: Render / Reconciliation (Asynchronous & Interruptible)
+React works on the WIP Tree.
+It traverses the tree using beginWork.
+If a change is detected, it "marks" the fiber with an effect tag (e.g., Placement, Update).
+Priority: Because this phase is asynchronous, React can pause work on a low-priority WIP tree to handle a high-priority event (like a keystroke).
+Phase 2: Complete Work
+As React climbs back up the tree (completeWork), it builds the physical DOM nodes for Host Components.
+It prepares the "Effect List" (a linked list of all fibers that actually need changes).
+Phase 3: Commit Phase (Synchronous & Uninterruptible)
+Flushing: React takes the finished WIP tree and "flushes" the changes to the DOM in one single, synchronous burst.
+The Switch: React updates the root pointer. The WIP Tree now becomes the Current Tree.
+Clean up: memoizedProps are updated to match the pendingProps.
+1. Why "Double Buffering" Matters
+No "Tearing": Users never see a partial UI (e.g., a header updates but the footer doesn't).
+Memory Efficiency: Instead of destroying and recreating objects, React simply recycles the alternate node, swapping data between the two.
+
+---
+
+📒 React Fiber: Incremental Rendering & The Virtual Stack
+1. The Problem: The "Sync" Call Stack
+Before Fiber, React used a recursive rendering model.
+The Stack: When a function calls another, a "stack frame" is added. The engine cannot stop until the stack is empty.
+The Issue: If you have 10,000 components, the browser's Main Thread stays blocked for a long time. The user can't click, scroll, or type because the "stack" is busy.
+2. The Solution: Fiber as a "Virtual Stack Frame"
+Fiber is a re-implementation of the stack specifically for components.
+Manual Control: Unlike the built-in JS stack, React can manually pause a Fiber, save its state, and come back to it later.
+Unit of Work: One component = One Fiber = One "frame" of work.
+Work Loop: React runs a workLoop that constantly checks: "Do I have enough time left in this frame (16ms) to do more work? If not, pause and let the browser paint."
+3. Incremental Rendering & Scheduling
+This is the ability to split rendering into chunks. It introduces Priority-Based Updates:
+Priority Level	Example Task	Behavior
+Immediate/High	Typing in an input, clicking a button.	Interrupts current low-priority work to keep UI snappy.
+Normal	Fetching data, list rendering.	Standard updates.
+Low/Offscreen	Pre-rendering a hidden tab or analytics.	Only happens when the CPU is idle.
+Abort/Reuse: If a user types "A" then "B" very quickly, React can abort the render for "A" mid-way and start working on "B" to stay up to date.
+4. The Two-Phase Separation (The "Architecture")
+React splits the process into two distinct phases to enable cross-platform support.
+Phase 1: Reconciliation (Render Phase) — The Brain
+Nature: Asynchronous & Interruptible.
+Action: Compares the old tree vs. the new tree (Diffing).
+Output: A list of "Effects" (changes needed).
+Consistency: The same logic is used for Web, Mobile, and VR.
+Phase 2: Rendering (Commit Phase) — The Muscles
+Nature: Synchronous & Uninterruptible (Must be fast to prevent flickering).
+Action: Takes the list of effects and physically applies them to the host environment.
+Platform Specifics:
+React DOM: Injects div, span, etc.
+React Native: Calls Objective-C or Java to create UIView or android.view.
+React Three Fiber: Updates Three.js objects (meshes, geometries).
+
+---
+
+In standard JavaScript, when you call a function, the engine creates a Stack Frame. 
+The Problem (The "Stack" is a Prude):
+The JS Call Stack is synchronous and recursive. If ComponentA calls ComponentB, which calls ComponentC, the stack looks like this:
+[Frame: ComponentC] <— Active
+[Frame: ComponentB]
+[Frame: ComponentA]
+The Catch: You cannot "pause" the stack. If ComponentC takes 200ms to calculate, the browser is frozen. It cannot respond to a user clicking "Cancel" because it is stuck at the top of that stack.
+
+A Fiber is a Virtual Stack Frame. React decided: "The built-in JS stack is too rigid. We will build our own 'stack' using objects on the heap."
+Because a Fiber is just a JavaScript Object, React can:
+Save it: Keep the object in memory and stop execution.
+Move it: Put it to the side and work on a "Higher Priority" Fiber.
+Discard it: If a user types a new character, React can literally throw away the "Work-in-Progress" Fiber for the old character and start a new one.
+
+1. How Component Rendering Relates to the Stack
+When you write <MyComponent />, React treats it as a unit of work.
+
+Feature	Standard Rendering (Pre-Fiber)	                    Fiber Rendering (Modern)
+- Logic	Uses the JS Call Stack.	                            Uses the Fiber Tree (Virtual Stack).
+- Flow	Recursive (Depth-first).	                          Loop-based (Iterative).
+- Interruption	Impossible. The thread is blocked.	        Possible. React checks `shouldYield()` every few ms.
+- State	Lost if the function crashes/stops.	                Persisted in the Fiber's memoizedState.
+
+How React walks this "Stack":
+Go Down: It follows child pointers until it hits a leaf (like a `div`).
+Go Sideways: It checks for a sibling.
+Go Up: If no sibling exists, it follows the return pointer back to the parent.
+Why this navigation is genius:
+In a normal stack, "returning" is automatic. In Fiber, "returning" is a manual pointer. This allows React to stay in a while loop:
+```js
+while (workInProgress !== null && !shouldYield()) {
+  workInProgress = performUnitOfWork(workInProgress);
+}
+```
+If `shouldYield()` is true (e.g., 5ms have passed), the loop breaks. The workInProgress pointer stays exactly where it was. When the browser is idle again, the loop restarts.
+
+---
+
+📒 React Fiber: The Lanes System
+What are Lanes? Lanes are React’s modern Priority System (introduced in React 17). They replaced the old `pendingWorkPriority` (which used simple numbers) with a 31-bit bitmask.
+The Bitmask (Lanes) is just the "Project Management" layer. It’s the metadata that tells React what needs to be done and how fast to do it. It is not the actual code, the component, or the DOM change itself.
+The Goal: To enable Concurrent React, allowing multiple updates to exist at the same time without blocking or "clobbering" each other.
+2. Why the change? (Numbers vs. Bits)
+The Old Way (Numeric Priority): A component had a single number for priority. If a "High Priority" update came in while a "Low Priority" update was running, React would struggle to track both. It was usually "one or the other."
+The New Way (Lanes): A Fiber has 31 lanes (bits). Think of these as 31 checkboxes. A component can have multiple boxes checked at once, meaning it can track multiple types of work simultaneously.
+1. Real-World Example: The Search Bar
+This is the perfect example to use in an interview to show how Lanes handle overlapping updates.
+Scenario: You have an input field and a massive list of results below it.
+Step 1: You type the letter "A". React assigns a SyncLane to update the text box and a TransitionLane to filter the big list.
+Step 2: React starts the heavy work of filtering the list (TransitionLane).
+Step 3 (The Overlap): While the list is still rendering, you type "B".
+Step 4 (Bitmasking at work): Because Lanes are bits, React’s internal state for that component now looks like: 0b00001001 (Both the Sync bit and the Transition bit are "checked").
+Step 5: React sees the SyncLane bit is active, pauses the list rendering, and updates the text box so the typing feels instant.
+Step 6: Once the "B" is shown, React looks at its "checkboxes," sees the TransitionLane is still checked, and finishes the list filtering.
+1. Key Technical Terms (For Deep Dives)
+Bitwise Math: React uses operators like & (AND) and | (OR) to check priorities. This is O(1) speed — much faster than searching an array or list of tasks.
+Lanes Entanglement: React can "link" two different lanes together if they need to finish at the exact same time (e.g., a header and footer updating together).
+Starvation Prevention: If a "Slow Lane" is ignored for too long because of constant "Express" traffic, React will expire that lane and force it to finish (promoting it to High Priority).
+childLanes: A property on Fiber nodes that "bubbles up" the priority of children. It allows React to skip entire subtrees if their childLanes bit is 0 (meaning no work is pending inside).
+
+2. Common Lane Priority Levels
+React categorizes work into several key buckets: 
+Lane Name           Priority	Typical Use Case
+SyncLane            Highest 	Discrete user events like clicks or keyboard presses that need an immediate response.
+InputContinuousLane	High	    Constant user feedback like scrolling, dragging, or mouse movements.
+DefaultLane	        Normal  	Standard setState updates not wrapped in any specific priority.
+TransitionLanes	    Low	      Updates wrapped in startTransition or useTransition. These are interruptible by higher lanes.
+IdleLane	          Lowest  	Background tasks like pre-fetching analytics or offscreen content.
+
+---
+
+1. The Core Concept: "The Two Trees"
+React Fiber doesn't just have one tree; it maintains two at all times. They are linked together via the .alternate property. 
+The Current Tree: This represents the UI that is currently on the screen. It is "flushed" and visible to the user.
+The Work-in-Progress (WIP) Tree: This is the "draft" tree where React prepares the next state. It is built in the background and is not visible to the user. 
+2. Why Use Double Buffering?
+Without it, React would have to update the live DOM as it goes. This causes two major problems:
+Tearing (Partial UI): If React updates the "Header" but gets interrupted before updating the "Footer," the user sees an inconsistent, "torn" UI.
+Responsiveness: If React is busy updating the live tree, it can't easily "pause" to handle a user click without leaving the UI in a broken, half-finished state.
+3. The "Switch" Mechanism
+The transition from the "Draft" to the "Live" tree happens in two main steps:
+Step 1: Cloning (Reconciliation Phase): When an update starts, React walks through the Current tree and clones nodes into the WIP tree. It reuses the old objects where possible (using the alternate pointer) to save memory.
+Step 2: The Commit (Commit Phase): Once the WIP tree is 100% finished and ready, React simply swaps a pointer. The "Root" of the app, which used to point to the Current tree, now points to the WIP tree.
+Instantly, the WIP tree becomes the Current tree.
+The old Current tree is now ready to be reused for the next update. 
+4. Real-World Analogy: The Painting Gallery
+Imagine a museum gallery with a painting on the wall.
+Current Tree: The painting currently hanging on the wall for visitors to see.
+WIP Tree: An artist is in the back room painting a new version of that painting.
+The Switch: Only when the artist is completely finished does the museum swap the paintings. Visitors never see the artist halfway through a brushstroke; they only see the old version or the new, finished version.
+5. Interview "Deep Dive" Points
+Memory Efficiency: React doesn't create two entirely new trees from scratch every time. It recycles the Fiber objects. The alternate of the Current Fiber is the WIP Fiber. They swap roles back and forth.
+Interruptibility: Because work happens on a "Draft" (WIP) tree, React can throw it away if a higher-priority update comes in. If the user types a new character before the "draft" for the last character is finished, React just resets the WIP tree and starts over with the new data.
+
+
+--- 
+
+useTransition 
+
+"A Transition is a way to mark a state update as 'non-urgent'. In React, updates are urgent by default (like typing in an input). By wrapping a slow update in startTransition, you tell React: 'Feel free to interrupt this if a more important task comes along.'" 
+
+2. How it Works with Fiber (The Logic)
+Transitions are the "Killer App" for the Lanes and Double Buffering system:
+The Split: When you use startTransition, React actually performs two updates.
+High-Priority (SyncLane): React updates any immediate UI (like an isPending spinner).
+Low-Priority (TransitionLane): React starts building a Work-in-Progress (WIP) tree for the heavy update in a background lane.
+The Interruption: If a user clicks or types while the WIP tree is being built, Fiber sees the SyncLane bit flip. It pauses or discards the transition work, handles the user input, and then restarts the transition with the newest state. 
+4. Real-World Example: The Tab Switcher
+Imagine a dashboard with three tabs: Home, Profile, and Massive Reports. 
+The Problem: Without transitions, clicking "Massive Reports" freezes the whole app for 1 second while it renders 500 charts. If you accidentally clicked it and want to switch back to "Home" immediately, you can't—the UI is locked.
+The Solution: Wrap the tab switch in a transition. 
+const [isPending, startTransition] = useTransition();
+const [tab, setTab] = useState('home');
+
+function selectTab(nextTab) {
+  // Marking the heavy tab-switch as a transition
+  startTransition(() => {
+    setTab(nextTab);
+  });
+}
+
+return (
+  <div style={{ opacity: isPending ? 0.7 : 1 }}>
+    <TabButton onClick={() => selectTab('home')}>Home</TabButton>
+    <TabButton onClick={() => selectTab('reports')}>Reports</TabButton>
+    
+    {/* If 'reports' is slow, the UI doesn't freeze! */}
+    {tab === 'reports' ? <HeavyReports /> : <Home />}
+  </div>
+);
+

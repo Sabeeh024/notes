@@ -324,89 +324,6 @@ flushSync(() => {
 
 ---
 
-useDeferredValue
-useDeferredValue is a hook that takes a value and returns a 'deferred' version of it. When the original value updates quickly (like a user typing), React will first render the UI with the old value to keep things responsive, and then—in the background—it will work on a new render with the new value
-
-2. How it works with Fiber (Under the Hood)
-This hook is a direct application of the Double Buffering and Lanes concepts: 
-Lane Switching: When the original value changes, React treats the immediate update (e.g., updating an input field) as a SyncLane (High Priority).
-The Background Pass: React then schedules a separate render for the deferred value in a TransitionLane (Low Priority).
-Interruptible Rendering: Because the deferred render is in a low-priority lane, React can interrupt it. If the user types another character while React is halfway through rendering a huge list with the "old" deferred value, React throws away that work and starts fresh with the latest character.
-
-4. Why use this instead of Debouncing/Throttling?
-Fixed Delays: Debouncing uses a fixed timer (e.g., 300ms). If your computer is fast, you're waiting 300ms for no reason. If it's slow, 300ms might not be enough.
-Adaptability: useDeferredValue has no fixed delay. It is "as fast as possible." On a powerful PC, the deferred update might happen in 10ms. On a slow phone, it might take 500ms. React adjusts based on the hardware
-
-Example 
-
-The Scenario
-Imagine a search bar where each keystroke filters a huge array. Without useDeferredValue, every letter you type triggers a heavy render, making the typing feel "laggy" or "stuck."
-1. The Code Example
-javascript
-import { useState, useDeferredValue, memo } from 'react';
-
-function App() {
-  const [query, setQuery] = useState("");
-  
-  // 1. Create a "lagging" version of the query
-  const deferredQuery = useDeferredValue(query);
-
-  return (
-    <div>
-      {/* 2. The Input uses the REAL query (High Priority) */}
-      <input 
-        value={query} 
-        onChange={(e) => setQuery(e.target.value)} 
-        placeholder="Type to search..."
-      />
-
-      {/* 3. The List uses the DEFERRED query (Low Priority) */}
-      <SlowList text={deferredQuery} />
-    </div>
-  );
-}
-
-// 4. Wrap the slow component in memo!
-// This tells React: "Only re-render if deferredQuery actually changes."
-const SlowList = memo(({ text }) => {
-  console.log(`Rendering list for: ${text}`);
-  
-  // Artificial delay: Imagine filtering 10,000 items here
-  const items = [];
-  for (let i = 0; i < 250; i++) {
-    items.push(<li key={i}>Result for {text} #{i}</li>);
-  }
-
-  return <ul>{items}</ul>;
-});
-
-2. How this works in the Fiber Tree (The "Why")
-High Priority Render: When you type "A", setQuery("A") happens immediately. React renders the <input> with "A". Because deferredQuery hasn't updated yet (it's deferred), the SlowList sees the old value and memo tells it to skip rendering.
-Result: The typing is instant and smooth.
-Low Priority Render (Background): Once the input is painted on the screen, React starts a second background render pass. In this pass, it updates deferredQuery to "A".
-Interrupting: If you type "B" while the background render for "A" is still happening:
-React aborts the work for "A".
-It handles the SyncLane for "B" in the input box.
-It then starts a new background pass for "B".
-3. Interview "Pro-Tip": Why use memo here?
-If you don't use memo for the SlowList, the example fails.
-Why? Without memo, SlowList would re-render every time the parent App renders (which is every keystroke).
-With memo: SlowList only re-renders when its props change. Since its prop is the deferredQuery, it stays quiet while the user is typing rapidly and only starts working when React "releases" the deferred value.
-4. How to show "Loading" state?
-In an interview, they might ask: "How does the user know the list is lagging?"
-You can compare the two values:
-javascript
-const isStale = query !== deferredQuery;
-
-<div style={{ opacity: isStale ? 0.5 : 1 }}>
-  <SlowList text={deferredQuery} />
-</div>
-Use code with caution.
-
-Logic: If query is "AB" but deferredQuery is still "A", it means the list is "stale" (loading). Fading the list slightly is a great UX pattern.
-
----
-
 📒 React Fiber Architecture: Deep Dive Notes
 1. The Fiber Node Structure
 The "Fiber" is a plain JavaScript object representing a unit of work. It is both a pointer in a tree and a stack frame for a component.
@@ -574,47 +491,14 @@ Memory Efficiency: React doesn't create two entirely new trees from scratch ever
 Interruptibility: Because work happens on a "Draft" (WIP) tree, React can throw it away if a higher-priority update comes in. If the user types a new character before the "draft" for the last character is finished, React just resets the WIP tree and starts over with the new data.
 
 
---- 
-
-useTransition 
-
-"A Transition is a way to mark a state update as 'non-urgent'. In React, updates are urgent by default (like typing in an input). By wrapping a slow update in startTransition, you tell React: 'Feel free to interrupt this if a more important task comes along.'" 
-
-2. How it Works with Fiber (The Logic)
-Transitions are the "Killer App" for the Lanes and Double Buffering system:
-The Split: When you use startTransition, React actually performs two updates.
-High-Priority (SyncLane): React updates any immediate UI (like an isPending spinner).
-Low-Priority (TransitionLane): React starts building a Work-in-Progress (WIP) tree for the heavy update in a background lane.
-The Interruption: If a user clicks or types while the WIP tree is being built, Fiber sees the SyncLane bit flip. It pauses or discards the transition work, handles the user input, and then restarts the transition with the newest state. 
-4. Real-World Example: The Tab Switcher
-Imagine a dashboard with three tabs: Home, Profile, and Massive Reports. 
-The Problem: Without transitions, clicking "Massive Reports" freezes the whole app for 1 second while it renders 500 charts. If you accidentally clicked it and want to switch back to "Home" immediately, you can't—the UI is locked.
-The Solution: Wrap the tab switch in a transition. 
-const [isPending, startTransition] = useTransition();
-const [tab, setTab] = useState('home');
-
-```js
-function selectTab(nextTab) {
-  // Marking the heavy tab-switch as a transition
-  startTransition(() => {
-    setTab(nextTab);
-  });
-}
-
-return (
-  <div style={{ opacity: isPending ? 0.7 : 1 }}>
-    <TabButton onClick={() => selectTab('home')}>Home</TabButton>
-    <TabButton onClick={() => selectTab('reports')}>Reports</TabButton>
-    
-    {/* If 'reports' is slow, the UI doesn't freeze! */}
-    {tab === 'reports' ? <HeavyReports /> : <Home />}
-  </div>
-);
-
-```
---- 
+---  
 
 ## useState
+`useState` lets you add a state variable to your component.
+
+```js
+const [state, setState] = useState(initialState)
+```
 
 ### The Nature of State
   - **Memory**: State is a component's private memory that persists across renders.
@@ -675,3 +559,140 @@ function useState(initialState) {
   return pair;
 }
 ```
+
+---
+
+## useMemo
+`useMemo` lets you **cache the result of a **calculation** between re-renders.
+
+```js
+const cachedValue = useMemo(calculateValue, dependencies)
+```
+
+- React will **compare each dependency** with its previous value using the **Object.is comparison**.
+- **React Compiler** automatically memoizes values and functions, reducing the need for manual `useMemo` & `useCallback` calls. You can use the compiler to handle memoization automatically.
+
+---
+
+## useCallback 
+`useCallback` lets you **cache a function definition** between re-renders.
+
+```js
+const cachedFn = useCallback(fn, dependencies)
+```
+
+- React will **compare each dependency** with its previous value using the **Object.is comparison**.
+- If you’re writing a **custom Hook**, it’s recommended to **wrap any functions that it returns into useCallback**
+- **React Compiler** automatically memoizes values and functions, reducing the need for manual `useMemo` & `useCallback` calls. You can use the compiler to handle memoization automatically.
+
+---
+
+## useTransition 
+
+"A **Transition** is a way to **mark a state update as 'non-urgent'**. In React, **updates are urgent by default (like typing in an input)**. By **wrapping a slow update** in `startTransition`, you tell React: **'Feel free to interrupt this if a more important task comes along.'**" 
+
+### How it Works with Fiber (The Logic)
+Transitions are the "Killer App" for the Lanes and Double Buffering system:
+#### The Split: 
+When you use `startTransition`, React actually performs two updates.
+1. **High-Priority (SyncLane)**: React updates any immediate UI (like an isPending spinner).
+2. **Low-Priority (TransitionLane)**: React starts building a Work-in-Progress (WIP) tree for the heavy update in a background lane.
+#### The Interruption: 
+If a user clicks or types while the WIP tree is being built, Fiber sees the SyncLane bit flip. It pauses or discards the transition work, handles the user input, and then restarts the transition with the newest state. 
+
+**Real-World Example: The Tab Switcher**
+Imagine a dashboard with three tabs: Home, Profile, and Massive Reports. 
+**The Problem**: Without transitions, clicking "Massive Reports" freezes the whole app for 1 second while it renders 500 charts. If you accidentally clicked it and want to switch back to "Home" immediately, you can't—the UI is locked.
+**The Solution**: Wrap the tab switch in a transition. 
+const [isPending, startTransition] = useTransition();
+const [tab, setTab] = useState('home');
+
+```js
+function selectTab(nextTab) {
+  // Marking the heavy tab-switch as a transition
+  startTransition(() => {
+    setTab(nextTab);
+  });
+}
+
+return (
+  <div style={{ opacity: isPending ? 0.7 : 1 }}>
+    <TabButton onClick={() => selectTab('home')}>Home</TabButton>
+    <TabButton onClick={() => selectTab('reports')}>Reports</TabButton>
+    
+    {/* If 'reports' is slow, the UI doesn't freeze! */}
+    {tab === 'reports' ? <HeavyReports /> : <Home />}
+  </div>
+);
+
+```
+---
+
+## useDeferredValue
+`useDeferredValue` is a hook that **takes a value and returns a 'deferred' version of it**. When the original value updates quickly (like a user typing), React will first render the UI with the old value to keep things responsive, and then—in the background—it will work on a new render with the new value.
+
+### How it works with Fiber (Under the Hood)
+This hook is a direct application of the **Double Buffering** and **Lanes** concepts: 
+**Lane Switching**: When the original value changes, React treats the immediate update (e.g., updating an input field) as a SyncLane (High Priority).
+**The Background Pass**: React then schedules a separate render for the deferred value in a TransitionLane (Low Priority).
+**Interruptible Rendering**: Because the deferred render is in a low-priority lane, React can interrupt it. If the user types another character while React is halfway through rendering a huge list with the "old" deferred value, React throws away that work and starts fresh with the latest character.
+
+###  Why use this instead of Debouncing/Throttling?
+**Fixed Delays**: Debouncing uses a fixed timer (e.g., 300ms). If your computer is fast, you're waiting 300ms for no reason. If it's slow, 300ms might not be enough.
+**Adaptability**: `useDeferredValue` has no fixed delay. It is "as fast as possible." On a powerful PC, the deferred update might happen in 10ms. On a slow phone, it might take 500ms. React adjusts based on the hardware
+
+### Example 
+
+**The Scenario**: Imagine a search bar where each keystroke filters a huge array. Without useDeferredValue, every letter you type triggers a heavy render, making the typing feel "laggy" or "stuck."
+
+```js
+import { useState, useDeferredValue, memo } from 'react';
+
+function App() {
+  const [query, setQuery] = useState("");
+  
+  // 1. Create a "lagging" version of the query
+  const deferredQuery = useDeferredValue(query);
+
+  return (
+    <div>
+      {/* 2. The Input uses the REAL query (High Priority) */}
+      <input 
+        value={query} 
+        onChange={(e) => setQuery(e.target.value)} 
+        placeholder="Type to search..."
+      />
+
+      {/* 3. The List uses the DEFERRED query (Low Priority) */}
+      <SlowList text={deferredQuery} />
+    </div>
+  );
+}
+
+// 4. Wrap the slow component in memo!
+// This tells React: "Only re-render if deferredQuery actually changes."
+const SlowList = memo(({ text }) => {
+  console.log(`Rendering list for: ${text}`);
+  
+  // Artificial delay: Imagine filtering 10,000 items here
+  const items = [];
+  for (let i = 0; i < 250; i++) {
+    items.push(<li key={i}>Result for {text} #{i}</li>);
+  }
+
+  return <ul>{items}</ul>;
+});
+```
+
+### How this works in the Fiber Tree (The "Why")
+**High Priority Render:** When you type "A", setQuery("A") happens immediately. React renders the <input> with "A". Because deferredQuery hasn't updated yet (it's deferred), the SlowList sees the old value and memo tells it to skip rendering.
+**Result:** The typing is instant and smooth.
+**Low Priority Render (Background):** Once the input is painted on the screen, React starts a second background render pass. In this pass, it updates deferredQuery to "A".
+**Interrupting:** If you type "B" while the background render for "A" is still happening:
+React aborts the work for "A".
+It handles the SyncLane for "B" in the input box.
+It then starts a new background pass for "B".
+
+---
+In Strict Mode
+accidental impurities

@@ -593,6 +593,7 @@ The Solution: Wrap the tab switch in a transition.
 const [isPending, startTransition] = useTransition();
 const [tab, setTab] = useState('home');
 
+```js
 function selectTab(nextTab) {
   // Marking the heavy tab-switch as a transition
   startTransition(() => {
@@ -610,3 +611,67 @@ return (
   </div>
 );
 
+```
+--- 
+
+## useState
+
+### The Nature of State
+  - **Memory**: State is a component's private memory that persists across renders.
+  - **Isolation**: State is local to a specific component instance.
+  - **Initialization**: * Lazy Initialization: Use `useState(fn)` instead of `useState(fn())` for expensive calculations. React saves the initial state once and ignores it on the next renders..
+  - **Stability**: The set function identity is stable; it won't change between renders, making it safe to omit from useEffect dependencies.
+
+### Principles for structuring state 
+| Principle            | Problem                                    | Solution                                                 |
+| -------------------- | ------------------------------------------ | -------------------------------------------------------- |
+| Group Related State  | Updating `x` and `y` always together       | Merge into one object: `setPos({ x, y })`                |
+| Avoid Contradictions | `isSending` and `isSent` both being true   | Use a status string: `'typing' \| 'sending' \| 'sent'`   |
+| Avoid Redundancy     | `fullName` derived from `first` and `last` | Calculate during render: `const fullName = first + last` |
+| Avoid Duplication    | Storing a whole object in `selectedItem`   | Store only the id or index                               |
+| Flatten State        | Deeply nested objects are hard to update   | Normalize your data (like a database)                    |
+
+
+### Updates & Immutability
+In React, you treat state as **immutable**!. When you store objects in state, mutating them will not trigger renders. So never mutate, **always create a new reference**. 
+**Deep Nesting**: Use **Immer**. It allows you to write "mutating" code on a **draft proxy**, which Immer then converts into a clean, immutable update. 
+
+### Internal Mechanics (The "Array" Secret)
+
+Note: in real React, each component instance has its own hooks storage
+Constraint: This code illustrates why you cannot change the number or order of Hooks—the pointer would point to the wrong index in the array.
+
+```js
+// assume for a single component
+let componentHooks = [];
+let currentHookIndex = 0;
+
+// How useState works inside React (simplified).
+function useState(initialState) {
+  let pair = componentHooks[currentHookIndex];
+  if (pair) {
+    // This is not the first render,
+    // so the state pair already exists.
+    // Return it and prepare for next Hook call.
+    currentHookIndex++;
+    return pair;
+  }
+
+  // This is the first time we're rendering,
+  // so create a state pair and store it.
+  pair = [initialState, setState];
+
+  function setState(nextState) {
+    // When the user requests a state change,
+    // put the new value into the pair.
+    pair[0] = nextState;
+    updateDOM();
+  }
+
+  // Store the pair for future renders
+  // and prepare for the next Hook call.
+  componentHooks[currentHookIndex] = pair;
+  currentHookIndex++;
+  return pair;
+}
+```

@@ -1,155 +1,23 @@
-# 📘 React Core Concepts (Clean & Structured Notes)
-
-## 🧠 What is React?
+## What is React?
 
 React is a JavaScript library for building user interfaces using **reusable components**.
 
-### 🌐 Cross-Platform Rendering
-
-React uses different renderers depending on the platform:
-
-* **React DOM** → Web applications
-* **React Native** → Mobile applications
-
----
-
-## 🏗️ Core Architecture Overview
-
 React is built around two key ideas:
 
-* **Unidirectional Data Flow**
-* **Component-Based Architecture**
+1. **Unidirectional Data Flow**: Data in React flows in **one direction only**
+2. **Component-Based Architecture**: React applications are built by breaking the UI into **small, reusable, independent components**
 
----
+## What is JSX (JavaScript XML)?
 
-## 🔄 Unidirectional Data Flow
+JSX is a syntax extension for JavaScript that lets you **write HTML-like code inside JavaScript**.
 
-Data in React flows in **one direction only**:
+- It is syntactic sugar for `React.createElement`
+- JSX gets compiled into `React.createElement()` calls. 
+- It ultimately produces **React Elements** (plain JavaScript objects)
 
-👉 **Parent → Child**
-
-### ✅ Benefits
-
-* **Predictable State Changes**
-  You always know where data comes from and how it changes.
-
-* **Easier Debugging**
-  Bugs are easier to trace because updates follow a single path.
-
-* **Better Control**
-  State is managed in a controlled way, avoiding random mutations.
-
----
-
-## 🧩 Component-Based Architecture
-
-React applications are built by breaking the UI into **small, reusable, independent components**.
-
-> Think of your UI as a **tree of components**.
-
-### 🧱 Key Characteristics
-
-1. 🔁 Reusability: Components can be reused multiple times across the app
-2. 🔒 Encapsulation: Each component manages its own: UI (markup), State (data), Logic (behavior)
-3. 🧩 Composability: Small components can be combined to build complex UIs.
-
----
-
-# 📘 React Elements (Clean & Structured Notes)
-
-## 🧠 What is a React Element?
-
-A **React Element** is a **plain JavaScript object** that describes what you want to see on the screen.
-
----
-
-## 🔑 Key Characteristics
-
-* **Lightweight** → Just a JS object
-* **Immutable** → Cannot be changed after creation, to update UI → create a new element
-* **Descriptive** → Tells React what UI should look like
-* **Cheap to create** → Fast and efficient
-
----
-
-## 🧱 Structure of an Element
-
-A React element has two main properties:
-
-```js
-{
-  type: string | Component,
-  props: {
-    // attributes + children
-  }
-}
-```
-
-* **type**
-
-  * String → DOM element (`'div'`, `'button'`)
-  * Function/Class → React component
-
-* **props**
-
-  * Attributes (className, id, etc.)
-  * Children (nested elements or text)
-
----
-
-## 🌐 DOM Elements
-
-When `type` is a **string**, it represents a real DOM node.
+JSX is compiled by a **JavaScript compiler (transpiler)** — most commonly **Babel**.
 
 ### Example:
-
-```js
-{
-  type: 'button',
-  props: {
-    className: 'btn',
-    children: 'Click Me'
-  }
-}
-```
-
-👉 Equivalent JSX:
-
-```jsx
-<button className="btn">Click Me</button>
-```
-
----
-
-## 🧩 Component Elements
-
-When `type` is a **function or class**, it represents a React component.
-
-### Example:
-
-```js
-{
-  type: Button,
-  props: {
-    color: 'blue',
-    children: 'OK'
-  }
-}
-```
-
-👉 JSX:
-
-```jsx
-<Button color="blue">OK</Button>
-```
-
---- 
-
-## 🧠 What is JSX?
-
-JSX (JavaScript XML) is a syntax extension for JavaScript that allows you to write HTML-like code inside JavaScript. JSX is **syntactic sugar** over `React.createElement`
-JSX is just JavaScript Objects:
-
 ```jsx
 <button className="btn">Click</button>
 ```
@@ -157,6 +25,9 @@ JSX is just JavaScript Objects:
 Behind the scenes:
 
 ```js
+React.createElement('button', { className: 'btn' }, 'Click');
+
+// Output (React Element)
 {
   type: 'button',
   props: {
@@ -166,66 +37,50 @@ Behind the scenes:
 }
 ```
 
-Note: Gets compiled into `React.createElement()` calls
+
+## What is a React Element?
+
+A **React Element** is a **plain immutable JavaScript object** that describes the UI.
+
+### Structure of an Element
+
+A React element has two main properties:
+
+1. **type**: could be **DOM element** or **Component**
+2. **props**: could be **attributes** (className, id, etc.) & **Children** (nested elements or text)
+
 ```js
-React.createElement('button', null, 'Click');
+{
+  type: 'button' // string | Component,
+  props: {
+    // attributes + children
+    className: 'btn',
+    children: 'Click Me'
+  }
+}
+
+// equivalent jsx
+<button className="btn">Click Me</button>
 ```
 
----
+## What is Virtual DOM (VDOM)?
 
-## 🧩 Core Rules of JSX
+The **Virtual DOM** is a **lightweight JavaScript representation of the real DOM**. 
 
-1. Single Root Element: Every component must return **one parent element**.
-2. Close All Tags: All JSX tags must be properly closed.
-3. camelCase AttributesJSX uses **camelCase** for most attributes because it maps to JavaScript object properties.
-4. JavaScript Inside JSX: Use `{}` to embed JavaScript expressions.
+## What is Reconciliation?
 
----
+Reconciliation is the process React **uses to determine what changes are needed to update the UI efficiently**.
+It works by **comparing the new Virtual DOM tree with the previous one (diffing)** and calculating the **minimal set of updates required**.
+Reconciliation starts when state or props change (e.g., via `setState` or state updates in hooks).
 
-# 🌑 Shadow DOM
+By the end of this process:
 
-## What is it?
-Shadow DOM is a browser feature that lets you attach a **hidden, isolated DOM tree** to an element.
+- React knows what has changed
+- A renderer like `react-dom` or `react-native` applies the minimal updates to the real DOM (or native views)
 
-It is mainly used in **Web Components**.
+### Diffing Algorithm
 
----
-
-## 🔒 Features
-
-- **Encapsulation**: HTML, CSS, and JS are scoped
-- **Style isolation**: no CSS leakage in or out
-- **Reusability**: perfect for UI components
-
-Note Virtual DOM and Shadow DOM are both very different things
-
----
-
-## 🌳 Virtual DOM (VDOM)
-
-### 🧠 What is VDOM?
-
-The **Virtual DOM** is a **lightweight JavaScript representation of the real DOM**.
-
-👉 Instead of directly manipulating the real DOM, React:
-
-1. Creates a virtual representation (VDOM)
-2. Compares updates
-3. Applies only necessary changes to the real DOM
-
----
-
-## 🔁 Reconciliation
-
-### 🧠 What is Reconciliation?
-
-Reconciliation is the process React uses to determine what changes are needed to update the UI efficiently.
-
-React calls reconciliation which starts when you call ReactDOM.render() or setState(). By the end of the reconciliation, React knows the resulting DOM tree, and a renderer like react-dom or react-native applies the minimal set of changes necessary to update the DOM nodes (or the platform-specific views in case of React Native).
-
-## Diffing Algorithm
-
-The diffing algorithm is React’s O(n) heuristic used during reconciliation to compare two trees efficiently.
+The diffing algorithm is React’s O(n) heuristic **used during reconciliation to compare two trees efficiently**.
 
 It is based on these assumptions:
 
@@ -235,35 +90,9 @@ It is based on these assumptions:
 4. Keys override position and provide stable identity
 5. Comparison is done top-down (depth-first traversal)
 
-## 🧠 State & Render Tree Position
+## What is Shadow DOM?
 
-### ⚠️ Important Concept
-
-> State is tied to a **position in the render tree**, NOT the component itself.
-
-### ✅ State Preservation Rule
-
-* Same component
-* Same position
-
-👉 State is preserved
-
-### Example
-
-```jsx id="z9r0z9"
-{isFancy ? (
-  <Counter isFancy={true} />
-) : (
-  <Counter isFancy={false} />
-)}
-```
-
-👉 Result:
-
-* Same component at same position
-* State is preserved ✅
-
----
+Shadow DOM is a browser feature that lets you **attach a hidden, isolated DOM tree** to an element.
 
 # React Batching
 
@@ -567,6 +396,34 @@ function useState(initialState) {
   return pair;
 }
 ```
+
+---
+
+## State & Render Tree Position
+
+State is tied to a **position in the render tree**, NOT the component itself.
+
+### ✅ State Preservation Rule
+
+* Same component
+* Same position
+
+👉 State is preserved
+
+### Example
+
+```jsx id="z9r0z9"
+{isFancy ? (
+  <Counter isFancy={true} />
+) : (
+  <Counter isFancy={false} />
+)}
+```
+
+👉 Result:
+
+* Same component at same position
+* State is preserved ✅
 
 ---
 
@@ -982,7 +839,84 @@ function MyInput({ ref }) {
 
 ---
 
+## createRoot
 
-In Strict Mode
-accidental impurities
+`createRoot` lets you create a root to display React components inside a browser DOM node.
+
+```js
+const root = createRoot(domNode, options?)
+```
+
+Call createRoot to create a React root for displaying content inside a browser DOM element.
+React will create a root for the domNode, and take over managing the DOM inside it. After you’ve created a root, you need to call root.render to display a React component inside of it:
+
+```js
+import { createRoot } from 'react-dom/client';
+
+const domNode = document.getElementById('root'); // can also create element
+const root = createRoot(domNode);
+
+root.render(<App />);
+```
+
+An app fully built with React will usually only have one createRoot call for its root component. A page that uses “sprinkles” of React for parts of the page may have as many separate roots as needed.
+
+If your app is server-rendered, using createRoot() is not supported. Use hydrateRoot() instead.
+You’ll likely have only one createRoot call in your app. If you use a framework, it might do this call for you.
+When you want to render a piece of JSX in a different part of the DOM tree that isn’t a child of your component (for example, a modal or a tooltip), use createPortal instead of createRoot.
+
+To remove the React tree from the DOM node and clean up all the resources used by it, call root.unmount.
+
+root.unmount();
+
+Apps using server rendering or static generation must call hydrateRoot instead of createRoot. React will then hydrate (reuse) the DOM nodes from your HTML instead of destroying and re-creating them.
+
+
+---
+
+## createPortal
+createPortal lets you render some children into a different part of the DOM.
+
+```js
+<div>
+  <SomeComponent />
+  {createPortal(children, domNode, key?)}
+</div>
+```
+
+To create a portal, call createPortal, passing some JSX, and the DOM node where it should be rendered:
+
+```js
+import { createPortal } from 'react-dom';
+
+// ...
+
+<div>
+  <p>This child is placed in the parent div.</p>
+  {createPortal(
+    <p>This child is placed in the document body.</p>,
+    document.body
+  )}
+</div>
+```
+
+A portal only changes the physical placement of the DOM node. In every other way, the JSX you render into a portal acts as a child node of the React component that renders it. For example, the child can access the context provided by the parent tree, and events bubble up from children to parents according to the React tree.
+
+Portals let your components render some of their children into a different place in the DOM. This lets a part of your component “escape” from whatever containers it may be in. For example, a component can display a modal dialog or a tooltip that appears above and outside of the rest of the page.
+
+To create a portal, render the result of createPortal with some JSX and the DOM node where it should go:
+
+---
+
+## React.memo
+`memo` lets you **skip re-rendering a component when its props are unchanged**.
+
+```js
+const MemoizedComponent = memo(SomeComponent, arePropsEqual?)
+```
+
+React normally re-renders a component whenever its parent re-renders. With `memo`, you can create a component that React **will not re-render when its parent re-renders so long as its new props are the same as the old props (Not a Guarantee)**. Such a component is said to be memoized. 
+
+---
+
 object.is 

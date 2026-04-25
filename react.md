@@ -253,177 +253,83 @@ The transition from the "Draft" to the "Live" tree happens in two main steps:
 Instantly, the WIP tree becomes the Current tree.
 The old Current tree is now ready to be reused for the next update. 
 
----  
-
 ## The rules of hooks
 There are two main usage rules the React core team stipulates you need to follow to use hooks which they outline in the hooks proposal documentation.
 
 1. **Don’t call** Hooks inside **loops, conditions, or nested functions**. Instead, always use Hooks at the **top level** of your React function.
 2. Only Call Hooks from **React Functions**
 
----  
 
-## useState
-`useState` lets you add a state variable to your component.
+## How React Tracks Hooks Internally
+
+Note: in real React, each component instance has its own hooks storage
+Constraint: React maps each Hook call to a fixed position in an internal array. Changing the order or number of Hooks breaks this mapping, causing state to be read from the wrong index.
+
+```js
+// Factory to create an isolated component instance
+function createComponentInstance(Component) {
+  // Each component instance gets its own hook storage
+  let hooks = [];
+  let hookIndex = 0;
+
+  // Simulate React's render cycle for THIS component instance
+  function render() {
+    hookIndex = 0; // Reset before every render
+    Component();
+  }
+
+  // Simplified useState implementation
+  function useState(initialState) {
+    let statePair = hooks[hookIndex];
+
+    if (statePair) {
+      // Existing state (not first render)
+      hookIndex++;
+      return statePair;
+    }
+
+    // First render: create state
+    const currentIndex = hookIndex;
+
+    function setState(newValue) {
+      // Update the correct slot in the array
+      hooks[currentIndex][0] = newValue;
+
+      // Trigger re-render of THIS component instance
+      render();
+    }
+
+    statePair = [initialState, setState];
+
+    hooks[hookIndex] = statePair;
+    hookIndex++;
+
+    return statePair;
+  }
+
+  return {
+    render,
+    useState,
+  };
+}
+```
+
+## Core state hooks
+
+### `useState`
+
+`useState` lets you add a state variable to your component. 
+A component's `state` persists persists across renders. `state` is local to a specific component instance. 
 
 ```js
 const [state, setState] = useState(initialState)
 ```
 
-### The Nature of State
-  - **Memory**: State is a component's private memory that persists across renders.
-  - **Isolation**: State is local to a specific component instance.
-  - **Initialization**: * Lazy Initialization: Use `useState(fn)` instead of `useState(fn())` for expensive calculations. React saves the initial state once and ignores it on the next renders..
-  - **Stability**: The set function identity is stable; it won't change between renders, making it safe to omit from useEffect dependencies.
-
-### Principles for structuring state 
-| Principle            | Problem                                    | Solution                                                 |
-| -------------------- | ------------------------------------------ | -------------------------------------------------------- |
-| Group Related State  | Updating `x` and `y` always together       | Merge into one object: `setPos({ x, y })`                |
-| Avoid Contradictions | `isSending` and `isSent` both being true   | Use a status string: `'typing' \| 'sending' \| 'sent'`   |
-| Avoid Redundancy     | `fullName` derived from `first` and `last` | Calculate during render: `const fullName = first + last` |
-| Avoid Duplication    | Storing a whole object in `selectedItem`   | Store only the id or index                               |
-| Flatten State        | Deeply nested objects are hard to update   | Normalize your data (like a database)                    |
-
-
-### Updates & Immutability
-In React, you treat state as **immutable**!. When you store objects in state, mutating them will not trigger renders. So never mutate, **always create a new reference**. 
-**Deep Nesting**: Use **Immer**. It allows you to write "mutating" code on a **draft proxy**, which Immer then converts into a clean, immutable update. 
-
-### Internal Mechanics (The "Array" Secret)
-
-Note: in real React, each component instance has its own hooks storage
-Constraint: This code illustrates why you cannot change the number or order of Hooks—the pointer would point to the wrong index in the array.
-
-```js
-// assume for a single component
-let componentHooks = [];
-let currentHookIndex = 0;
-
-// How useState works inside React (simplified).
-function useState(initialState) {
-  let pair = componentHooks[currentHookIndex];
-  if (pair) {
-    // This is not the first render,
-    // so the state pair already exists.
-    // Return it and prepare for next Hook call.
-    currentHookIndex++;
-    return pair;
-  }
-
-  // This is the first time we're rendering,
-  // so create a state pair and store it.
-  pair = [initialState, setState];
-
-  function setState(nextState) {
-    // When the user requests a state change,
-    // put the new value into the pair.
-    pair[0] = nextState;
-    updateDOM();
-  }
-
-  // Store the pair for future renders
-  // and prepare for the next Hook call.
-  componentHooks[currentHookIndex] = pair;
-  currentHookIndex++;
-  return pair;
-}
-```
-
 ---
 
-## State & Render Tree Position
-
-State is tied to a **position in the render tree**, NOT the component itself.
-
-### ✅ State Preservation Rule
-
-* Same component
-* Same position
-
-👉 State is preserved
-
-### Example
-
-```jsx id="z9r0z9"
-{isFancy ? (
-  <Counter isFancy={true} />
-) : (
-  <Counter isFancy={false} />
-)}
-```
-
-👉 Result:
-
-* Same component at same position
-* State is preserved ✅
-
----
-
-## useReducer
+### `useReducer`
 
 `useReducer` lets you add a `reducer` to your component.
-
-```js
-function reducer(state, action) {
-  // ...
-}
-
-const [state, dispatch] = useReducer(reducer, initialArg, init?)
-```
-
-- **reducer**: The reducer function that **specifies how the state gets updated**. It must be **pure**, should take the **state** and **action** as arguments, and should **return the next state**.
-- **initialArg**: The value from which the initial state is calculated. How the initial state is calculated from it depends on the next init argument.
-- **optional init**: The initializer function that should return the initial state. If it’s not specified, the initial state is set to initialArg. Otherwise, the initial state is set to the result of calling init(initialArg).
-
-### dispatch function
-
-The `dispatch` function returned by `useReducer` lets you update the state to a different value and trigger a re-render. You need to pass the action as the only argument to the dispatch function
-While you can pass anything to dispatch, the community standard is the Flux Standard Action (FSA) pattern:
-
-- `type`: A string that describes the event.
-- `payload`: The data needed to perform the update.
-
-```js
-dispatch({
-  type: "changed_name",
-  payload: "Alice",
-});
-```
-
-### When to choose useReducer over useState
-
-While `useState` is great for simple values, `useReducer` shines in these scenarios:
-
-- **Complex State**: When your state is a nested object or array.
-- **Related Logic**: When updating one piece of state depends on the value of another.
-- **Predictability**: It moves the "how" of the state update out of the event handlers and into a single, pure function.
-
-### The "Initial Init" Pattern
-
-You mentioned the **optional init function**. This is specifically **useful for lazy initialization**. If you calculate your initial state based on an expensive computation, putting it in init ensures it only runs once during the initial mount, rather than on every render.
-
-```js
-function createInitialState(username) {
-  // Imagine a heavy computation here
-  return { name: username, points: 0 };
-}
-
-// Inside your component
-const [state, dispatch] = useReducer(
-  reducer,
-  props.username,
-  createInitialState,
-);
-```
-
-### Avoiding the "Stale State" Trap
-
-Because the `reducer` is a pure function, it always receives the current state as its first argument. This makes it much safer than `useState` when multiple updates are fired rapidly, as you don't have to worry about closures capturing an old version of the state.
-
-### Pitfall
-
-- State is read-only. Don’t modify any objects or arrays in state. Instead, always return new objects from your reducer:
 
 ```js
 function reducer(state, action) {
@@ -437,10 +343,103 @@ function reducer(state, action) {
     }
   }
 }
+
+const [state, dispatch] = useReducer(reducer, initialArg, init?)
+
+dispatch({
+  type: "changed_name",
+  payload: "Alice",
+});
 ```
+
+- `reducer`: The reducer function that **specifies how the state gets updated**. It must be **pure**, should take the **state** and **action** as arguments, and should **return the next state**.
+- `initialArg`: The value from which the initial state is calculated. How the initial state is calculated from it depends on the next init argument.
+- `optional init`: The initializer function that should return the initial state. If it’s not specified, the initial state is set to initialArg. Otherwise, the initial state is set to the result of calling init(initialArg).
+- `dispatch`: lets you update the state. While you can pass anything to dispatch, the community standard is the Flux Standard Action (FSA) pattern: 
+    - `type`: A string that describes the event.
+    - `payload`: The data needed to perform the update.
+
+
+## Effects 
+
+### `useEffect`
+
+`useEffect`lets you synchronize a component with an external system.
+Here, **external system** means **any piece of code that’s not controlled by React**, such as:
+
+- A timer managed with `setInterval()` and `clearInterval()`.
+- An event subscription using `window.addEventListener()` and `window.removeEventListener()`.
+- A third-party animation library with an API like `animation.start()` and `animation.reset()`.
+
+```js
+useEffect(setup, dependencies?)
+```
+
+#### Effect Lifecycle
+
+- Component Mount → run setup
+- Dependency change → run previous cleanup → run new setup
+- ComponentUnmount → run cleanup
+
 ---
 
-## useMemo
+### `useLayoutEffect`
+
+`useLayoutEffect` is a version of `useEffect` that fires before the browser repaints the screen. Call `useLayoutEffect` to perform the layout measurements before the browser repaints the screen.
+
+```js
+useLayoutEffect(setup, dependencies?)
+```
+
+## Refs & imperative APIs
+
+### `useRef`
+
+`useRef` lets you reference a value that’s not needed for rendering. Note: `ref.current` property is mutable.
+
+```js
+const ref = useRef(initialValue);
+```
+
+React saves the initial ref value once and ignores it on the next renders.
+
+---
+
+### `useImperativeHandle`
+
+`useImperativeHandle` allows you to **manually define what a parent component sees when it accesses a `ref` on your component**. Main use of this hook is to **limit access**.
+Starting in React 19, `ref` is a standard prop. You no longer need `forwardRef` to expose a DOM node's ref for new components.
+
+```js
+import { useRef, useImperativeHandle } from "react";
+
+function MyInput({ ref }) {
+  // 1. Create an internal ref to hold the actual DOM node
+  const inputRef = useRef(null);
+
+  // 2. Customize the 'handle' exposed to the parent
+  useImperativeHandle(ref, () => {
+    return {
+      focus() {
+        inputRef.current.focus();
+      },
+      scrollIntoView() {
+        inputRef.current.scrollIntoView();
+      },
+    };
+  }, []); // Dependencies array works like useEffect
+
+  // 3. Attach the internal ref to the DOM element
+  return <input ref={inputRef} />;
+}
+```
+
+By `not passing the ref prop directly` to the `<input>`, you prevent the parent from accidentally changing styles or attributes it shouldn't touch.
+
+
+## Memoization & performance
+
+### `useMemo`
 
 `useMemo` lets you **cache the result of a calculation** between re-renders.
 
@@ -448,7 +447,9 @@ function reducer(state, action) {
 const cachedValue = useMemo(calculateValue, dependencies);
 ```
 
-## useCallback
+---
+
+### `useCallback`
 
 `useCallback` lets you **cache a function definition** between re-renders.
 If you’re writing a **custom Hook**, it’s recommended to **wrap any functions that it returns into useCallback**
@@ -457,22 +458,35 @@ If you’re writing a **custom Hook**, it’s recommended to **wrap any function
 const cachedFn = useCallback(fn, dependencies);
 ```
 
-## useTransition
+---
+
+### `memo`
+
+`memo` lets you **skip re-rendering (not a Guarantee) a component when its props are unchanged**.
+`memo` lets you **skip re-rendering a component when its props are unchanged**.
+
+```js
+const MemoizedComponent = memo(SomeComponent, arePropsEqual?)
+```
+
+## Concurrent / scheduling hooks
+
+### `useTransition`
 
 "A **Transition** is a way to **mark a state update as 'non-urgent'**. In React, **updates are urgent by default (like typing in an input)**. By **wrapping a slow update** in `startTransition`, you tell React: **'Feel free to interrupt this if a more important task comes along.'**"
 
-### How it Works with Fiber (The Logic)
+#### How it Works with Fiber (The Logic)
 
 Transitions are the "Killer App" for the Lanes and Double Buffering system:
 
-#### The Split:
+##### The Split:
 
 When you use `startTransition`, React actually performs two updates.
 
 1. **High-Priority (SyncLane)**: React updates any immediate UI (like an isPending spinner).
 2. **Low-Priority (TransitionLane)**: React starts building a Work-in-Progress (WIP) tree for the heavy update in a background lane.
 
-#### The Interruption:
+##### The Interruption:
 
 If a user clicks or types while the WIP tree is being built, Fiber sees the SyncLane bit flip. It pauses or discards the transition work, handles the user input, and then restarts the transition with the newest state.
 
@@ -504,23 +518,23 @@ return (
 
 ---
 
-## useDeferredValue
+### `useDeferredValue`
 
 `useDeferredValue` is a hook that **takes a value and returns a 'deferred' version of it**. When the original value updates quickly (like a user typing), React will first render the UI with the old value to keep things responsive, and then—in the background—it will work on a new render with the new value.
 
-### How it works with Fiber (Under the Hood)
+#### How it works with Fiber (Under the Hood)
 
 This hook is a direct application of the **Double Buffering** and **Lanes** concepts:
 **Lane Switching**: When the original value changes, React treats the immediate update (e.g., updating an input field) as a SyncLane (High Priority).
 **The Background Pass**: React then schedules a separate render for the deferred value in a TransitionLane (Low Priority).
 **Interruptible Rendering**: Because the deferred render is in a low-priority lane, React can interrupt it. If the user types another character while React is halfway through rendering a huge list with the "old" deferred value, React throws away that work and starts fresh with the latest character.
 
-### Why use this instead of Debouncing/Throttling?
+#### Why use this instead of Debouncing/Throttling?
 
 **Fixed Delays**: Debouncing uses a fixed timer (e.g., 300ms). If your computer is fast, you're waiting 300ms for no reason. If it's slow, 300ms might not be enough.
 **Adaptability**: `useDeferredValue` has no fixed delay. It is "as fast as possible." On a powerful PC, the deferred update might happen in 10ms. On a slow phone, it might take 500ms. React adjusts based on the hardware
 
-### Example
+#### Example
 
 **The Scenario**: Imagine a search bar where each keystroke filters a huge array. Without useDeferredValue, every letter you type triggers a heavy render, making the typing feel "laggy" or "stuck."
 
@@ -567,7 +581,7 @@ const SlowList = memo(({ text }) => {
 });
 ```
 
-### How this works in the Fiber Tree (The "Why")
+#### How this works in the Fiber Tree (The "Why")
 
 **High Priority Render:** When you type "A", setQuery("A") happens immediately. React renders the <input> with "A". Because deferredQuery hasn't updated yet (it's deferred), the SlowList sees the old value and memo tells it to skip rendering.
 **Result:** The typing is instant and smooth.
@@ -577,77 +591,9 @@ React aborts the work for "A".
 It handles the SyncLane for "B" in the input box.
 It then starts a new background pass for "B".
 
----
+## React DOM APIs
 
-## useEffect
-
-`useEffect`lets you synchronize a component with an external system.
-Here, **external system** means **any piece of code that’s not controlled by React**, such as:
-
-- A timer managed with `setInterval()` and `clearInterval()`.
-- An event subscription using `window.addEventListener()` and `window.removeEventListener()`.
-- A third-party animation library with an API like `animation.start()` and `animation.reset()`.
-
-```js
-useEffect(setup, dependencies?)
-```
-
-### Effect Lifecycle
-
-Component Mount → run setup
-Dependency change → run previous cleanup → run new setup
-ComponentUnmount → run cleanup
-
-## useLayoutEffect
-
-`useLayoutEffect` is a version of `useEffect` that fires before the browser repaints the screen. Call `useLayoutEffect` to perform the layout measurements before the browser repaints the screen.
-
-```js
-useLayoutEffect(setup, dependencies?)
-```
-
-## useRef
-
-`useRef` lets you reference a value that’s not needed for rendering. Note: `ref.current` property is mutable.
-
-```js
-const ref = useRef(initialValue);
-```
-
-React saves the initial ref value once and ignores it on the next renders.
-
-## useImperativeHandle
-
-`useImperativeHandle` allows you to **manually define what a parent component sees when it accesses a `ref` on your component**. Main use of this hook is to **limit access**.
-Starting in React 19, `ref` is a standard prop. You no longer need `forwardRef` to expose a DOM node's ref for new components.
-
-```js
-import { useRef, useImperativeHandle } from "react";
-
-function MyInput({ ref }) {
-  // 1. Create an internal ref to hold the actual DOM node
-  const inputRef = useRef(null);
-
-  // 2. Customize the 'handle' exposed to the parent
-  useImperativeHandle(ref, () => {
-    return {
-      focus() {
-        inputRef.current.focus();
-      },
-      scrollIntoView() {
-        inputRef.current.scrollIntoView();
-      },
-    };
-  }, []); // Dependencies array works like useEffect
-
-  // 3. Attach the internal ref to the DOM element
-  return <input ref={inputRef} />;
-}
-```
-
-By `not passing the ref prop directly` to the `<input>`, you prevent the parent from accidentally changing styles or attributes it shouldn't touch.
-
-## createRoot
+### `createRoot`
 
 `createRoot` lets you **create a React root for displaying content inside a browser DOM node**.
 After you’ve created a root, you need to call `root.render` to display a React component inside of it.
@@ -659,7 +605,9 @@ const root = createRoot(domNode, options?)
 root.render(<App />);
 ```
 
-## createPortal
+---
+
+### `createPortal`
 
 `createPortal` lets you **render some children** into a **different part of the DOM**. This lets a part of your component **“escape”** from whatever **containers it may be in**. Ex: Modal, tooltip etc
 
@@ -669,11 +617,3 @@ root.render(<App />);
 </div>
 ```
 
-## memo
-
-`memo` lets you **skip re-rendering (not a Guarantee) a component when its props are unchanged**.
-`memo` lets you **skip re-rendering a component when its props are unchanged**.
-
-```js
-const MemoizedComponent = memo(SomeComponent, arePropsEqual?)
-```

@@ -402,29 +402,9 @@ const MemoizedComponent = memo(SomeComponent, arePropsEqual?)
 
 "A **Transition** is a way to **mark a state update as 'non-urgent'**. In React, **updates are urgent by default (like typing in an input)**. By **wrapping a slow update** in `startTransition`, you tell React: **'Feel free to interrupt this if a more important task comes along.'**"
 
-#### How it Works with Fiber (The Logic)
-
-Transitions are the "Killer App" for the Lanes and Double Buffering system:
-
-##### The Split:
-
-When you use `startTransition`, React actually performs two updates.
-
-1. **High-Priority (SyncLane)**: React updates any immediate UI (like an isPending spinner).
-2. **Low-Priority (TransitionLane)**: React starts building a Work-in-Progress (WIP) tree for the heavy update in a background lane.
-
-##### The Interruption:
-
-If a user clicks or types while the WIP tree is being built, Fiber sees the SyncLane bit flip. It pauses or discards the transition work, handles the user input, and then restarts the transition with the newest state.
-
-**Real-World Example: The Tab Switcher**
-Imagine a dashboard with three tabs: Home, Profile, and Massive Reports.
-**The Problem**: Without transitions, clicking "Massive Reports" freezes the whole app for 1 second while it renders 500 charts. If you accidentally clicked it and want to switch back to "Home" immediately, you can't—the UI is locked.
-**The Solution**: Wrap the tab switch in a transition.
-const [isPending, startTransition] = useTransition();
-const [tab, setTab] = useState('home');
-
 ```js
+ const [isPending, startTransition] = useTransition();
+
 function selectTab(nextTab) {
   // Marking the heavy tab-switch as a transition
   startTransition(() => {
@@ -448,13 +428,6 @@ return (
 ### `useDeferredValue`
 
 `useDeferredValue` is a hook that **takes a value and returns a 'deferred' version of it**. When the original value updates quickly (like a user typing), React will first render the UI with the old value to keep things responsive, and then—in the background—it will work on a new render with the new value.
-
-#### How it works with Fiber (Under the Hood)
-
-This hook is a direct application of the **Double Buffering** and **Lanes** concepts:
-**Lane Switching**: When the original value changes, React treats the immediate update (e.g., updating an input field) as a SyncLane (High Priority).
-**The Background Pass**: React then schedules a separate render for the deferred value in a TransitionLane (Low Priority).
-**Interruptible Rendering**: Because the deferred render is in a low-priority lane, React can interrupt it. If the user types another character while React is halfway through rendering a huge list with the "old" deferred value, React throws away that work and starts fresh with the latest character.
 
 #### Why use this instead of Debouncing/Throttling?
 
@@ -488,35 +461,7 @@ function App() {
     </div>
   );
 }
-
-// 4. Wrap the slow component in memo!
-// This tells React: "Only re-render if deferredQuery actually changes."
-const SlowList = memo(({ text }) => {
-  console.log(`Rendering list for: ${text}`);
-
-  // Artificial delay: Imagine filtering 10,000 items here
-  const items = [];
-  for (let i = 0; i < 250; i++) {
-    items.push(
-      <li key={i}>
-        Result for {text} #{i}
-      </li>,
-    );
-  }
-
-  return <ul>{items}</ul>;
-});
 ```
-
-#### How this works in the Fiber Tree (The "Why")
-
-**High Priority Render:** When you type "A", setQuery("A") happens immediately. React renders the <input> with "A". Because deferredQuery hasn't updated yet (it's deferred), the SlowList sees the old value and memo tells it to skip rendering.
-**Result:** The typing is instant and smooth.
-**Low Priority Render (Background):** Once the input is painted on the screen, React starts a second background render pass. In this pass, it updates deferredQuery to "A".
-**Interrupting:** If you type "B" while the background render for "A" is still happening:
-React aborts the work for "A".
-It handles the SyncLane for "B" in the input box.
-It then starts a new background pass for "B".
 
 ## React DOM APIs
 

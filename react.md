@@ -90,6 +90,84 @@ It is based on these assumptions:
 4. Keys override position and provide stable identity
 5. Comparison is done top-down (depth-first traversal)
 
+## React Fiber Architecture
+
+### 1. What is React Fiber?
+
+React Fiber is the re-implementation of React's core algorithm. Its primary goal is Incremental Rendering: the ability to split rendering work into chunks and spread it out over multiple frames.
+
+- **The Problem**: Before Fiber (Stack Reconciler), rendering was recursive and synchronous. Once it started, it couldn't stop until the entire tree was processed, which blocked the browser's main thread and caused UI "jank."
+- **The Solution**: Fiber transforms the "stack" into a "virtual stack" using JavaScript objects. This allows React to pause, resume, or discard work based on priority.
+
+### 2. The Fiber Node Structure
+
+A "Fiber" is a plain JS object representing a unit of work. It uses pointers to navigate the tree iteratively rather than recursively:
+
+- `child`: Points to the first direct child.
+- `sibling`: Points to the next node at the same level.
+- `return`: Points back to the parent (the "return" address after finishing work).
+- `alternate`: A link to the "mirror" node in the double-buffering system (Current vs. WIP).
+
+### 3. Double Buffering & The Two Trees
+
+React maintains two trees simultaneously to ensure a smooth UI:
+
+- **Current Tree**: The UI currently visible on the screen.
+- **Work-in-Progress (WIP)** Tree: The "draft" tree where React prepares updates.
+
+Why? To prevent "Tearing" (showing a partial/broken UI). React finishes the entire WIP tree in the background and then performs a "pointer swap" to make it the Current tree.
+
+### 4. The Two-Phase Lifecycle
+
+To enable interruptible work, React splits the rendering process:
+
+| Phase   | Name                    | Nature                        | Responsibility                                                                        |
+| ------- | ----------------------- | ----------------------------- | ------------------------------------------------------------------------------------- |
+| Phase 1 | Reconciliation (Render) | Asynchronous & Interruptible  | Builds the new WIP tree; diffs the old vs. new tree; marks changes with "Effect Tags" |
+| Phase 2 | Commit                  | Synchronous & Uninterruptible | Applying changes to the DOM; must be fast to avoid flickering                         |
+
+### 5. The Work Loop & shouldYield
+
+Because Fiber is iterative (not recursive), React can use a while loop to process the tree.
+
+```js
+while (workInProgress !== null && !shouldYield()) {
+  workInProgress = performUnitOfWork(workInProgress);
+}
+```
+
+React generally targets a 5ms frame deadline for concurrent work.
+
+- When the work loop starts, React records the start time.
+- After processing a Fiber node, it calls `shouldYield()`.
+- If the elapsed time is greater than 5ms, `shouldYield()` returns true.
+- React pauses the loop, saves the current workInProgress pointer, and tells the browser: "I'm done for now. If you have a click or a scroll to handle, do it now. Call me back when you're idle."
+
+### 6. Scheduling & Lanes (Priority)
+
+Incremental Rendering is the ability to split rendering into chunks. It introduces Priority-Based Updates.
+React uses a system called Lanes to decide which update is most important. It uses "Bitmasks" (31 bits) to track multiple types of work at once.
+
+Common Priority Levels:
+
+- **Immediate/Sync**: Clicks, typing (Must feel instant).
+- **Transition**: normal updates (Can be slightly delayed).
+- **Idle**: Analytics or off-screen content (Low priority).
+
+**Starvation Prevention**: If a low-priority task is ignored for too long, React automatically promotes it to "High Priority" so it eventually finishes.
+
+### 7. Bailout Logic
+
+- `pendingProps` → new props
+- `memoizedProps` → previous props
+  
+If `pendingProps === memoizedProps` and no state changed, React "bails out" (skips) re-render.
+
+### Diagram
+
+![alt text](fiber-architecture.png)
+
+
 ## What is Shadow DOM?
 
 Shadow DOM is a browser feature that lets you **attach a hidden, isolated DOM tree** to an element.
@@ -101,157 +179,6 @@ Batching is when **React groups multiple state updates into a single re-render**
 From **React 18 onward**, **automatic batching applies to all updates—including** those in `setTimeout`, `promises`, `native events`, and `other async code`.
 
 You can **opt out of batching** using `flushSync`, which **forces React to immediately apply updates and re-render synchronously**.
-
-## React Fiber Architecture
-
-**1. The Fiber Node Structure**
-The "Fiber" is a plain JavaScript object representing a unit of work. It is both a pointer in a tree and a stack frame for a component.
-**Navigation Pointers:**
-child: Points to the first direct child.
-sibling: Points to the next node at the same level.
-return: Points to the parent (where the program returns after processing the fiber).
-**Identification:**
-type: The component (function/class) or the Host Component string (e.g., 'div').
-key: Unique identifier used to optimize list diffing.
-The "Double Buffer" Link:
-alternate: The "Mirror" node. If this is the Current fiber, the alternate is the Work-in-Progress (WIP) fiber, and vice versa.
-**1. Prop Management & Optimization**
-React uses two specific fields to decide if it can "bail out" (skip) a component to save CPU cycles.
-pendingProps: The incoming data. These are the props provided by the parent or the new state during the current render pass.
-memoizedProps: The "Last Known Good" data. These are the props used in the last successfully committed render.
-The Optimization Logic (beginWork phase):
-If (pendingProps === memoizedProps) (Shallow Comparison) + No State Change:
-→ Bailout! React reuses the existing output and skips the component’s children.
-**1. The Rendering Lifecycle**
-**Phase 1: Render / Reconciliation (Asynchronous & Interruptible)**
-React works on the WIP Tree.
-It traverses the tree using beginWork.
-If a change is detected, it "marks" the fiber with an effect tag (e.g., Placement, Update).
-Priority: Because this phase is asynchronous, React can pause work on a low-priority WIP tree to handle a high-priority event (like a keystroke).
-**Phase 2: Complete Work**
-As React climbs back up the tree (completeWork), it builds the physical DOM nodes for Host Components.
-It prepares the "Effect List" (a linked list of all fibers that actually need changes).
-**Phase 3: Commit Phase (Synchronous & Uninterruptible)**
-Flushing: React takes the finished WIP tree and "flushes" the changes to the DOM in one single, synchronous burst.
-The Switch: React updates the root pointer. The WIP Tree now becomes the Current Tree.
-Clean up: memoizedProps are updated to match the pendingProps.
-
-**1. Why "Double Buffering" Matters**
-No "Tearing": Users never see a partial UI (e.g., a header updates but the footer doesn't).
-Memory Efficiency: Instead of destroying and recreating objects, React simply recycles the alternate node, swapping data between the two.
-
-## React Fiber: Incremental Rendering & The Virtual Stack
-
-**1. The Problem: The "Sync" Call Stack**
-Before Fiber, React used a recursive rendering model.
-The Stack: When a function calls another, a "stack frame" is added. The engine cannot stop until the stack is empty.
-The Issue: If you have 10,000 components, the browser's Main Thread stays blocked for a long time. The user can't click, scroll, or type because the "stack" is busy.
-
-**2. The Solution: Fiber as a "Virtual Stack Frame"**
-Fiber is a re-implementation of the stack specifically for components.
-Manual Control: Unlike the built-in JS stack, React can manually pause a Fiber, save its state, and come back to it later.
-Unit of Work: One component = One Fiber = One "frame" of work.
-Work Loop: React runs a workLoop that constantly checks: "Do I have enough time left in this frame (16ms) to do more work? If not, pause and let the browser paint."
-
-**3. Incremental Rendering & Scheduling**
-This is the ability to split rendering into chunks. It introduces Priority-Based Updates
-
-**4. The Two-Phase Separation (The "Architecture")**
-React splits the process into two distinct phases to enable cross-platform support.
-**Phase 1: Reconciliation (Render Phase) — The Brain**
-Nature: Asynchronous & Interruptible.
-Action: Compares the old tree vs. the new tree (Diffing).
-Output: A list of "Effects" (changes needed).
-Consistency: The same logic is used for Web, Mobile, and VR.
-**Phase 2: Rendering (Commit Phase) — The Muscles**
-Nature: Synchronous & Uninterruptible (Must be fast to prevent flickering).
-Action: Takes the list of effects and physically applies them to the host environment.
-
-## Virtual Stack Frame
-
-In standard JavaScript, when you call a function, the engine creates a Stack Frame. 
-
-**The Problem (The "Stack" is a Prude):**
-The JS Call Stack is **synchronous** and **recursive**.
-
-A Fiber is a Virtual Stack Frame. React decided: `"The built-in JS stack is too rigid. We will build our own 'stack' using objects on the heap."`
-Because a Fiber is just a JavaScript Object, React can:
-Save it: Keep the object in memory and stop execution.
-Move it: Put it to the side and work on a "Higher Priority" Fiber.
-Discard it: If a user types a new character, React can literally throw away the "Work-in-Progress" Fiber for the old character and start a new one.
-
-### How React walks this "Stack":
-
-Go Down: It follows child pointers until it hits a leaf (like a `div`).
-Go Sideways: It checks for a sibling.
-Go Up: If no sibling exists, it follows the return pointer back to the parent.
-
-Why this navigation is genius:
-In a normal stack, "returning" is automatic. In Fiber, "returning" is a manual pointer. This allows React to stay in a while loop:
-```js
-while (workInProgress !== null && !shouldYield()) {
-  workInProgress = performUnitOfWork(workInProgress);
-}
-```
-If `shouldYield()` is true (e.g., 5ms have passed), the loop breaks. The workInProgress pointer stays exactly where it was. When the browser is idle again, the loop restarts.
-
-## React Fiber: The Lanes System
-
-Lanes are React’s modern Priority System. They replaced the old `pendingWorkPriority` (which used simple numbers) with a 31-bit bitmask.
-The Bitmask (Lanes) is just the "Project Management" layer. It’s the metadata that tells React what needs to be done and how fast to do it. It is not the actual code, the component, or the DOM change itself.
-**The Goal**: To enable Concurrent React, allowing multiple updates to exist at the same time without blocking or "clobbering" each other.
-1. **Why the change?** (Numbers vs. Bits)
-**The Old Way (Numeric Priority)**: A component had a single number for priority. If a "High Priority" update came in while a "Low Priority" update was running, React would struggle to track both. It was usually "one or the other."
-**The New Way (Lanes)**: A Fiber has 31 lanes (bits). Think of these as 31 checkboxes. A component can have multiple boxes checked at once, meaning it can track multiple types of work simultaneously.
-
-**Starvation Prevention**: If a "Slow Lane" is ignored for too long because of constant "Express" traffic, React will expire that lane and force it to finish (promoting it to High Priority).
-
-### Real-World Example: The Search Bar**
-
-Scenario: You have an input field and a massive list of results below it.
-
-Step 1: You type the letter "A". React assigns a `SyncLane` to update the text box and a `TransitionLane` to filter the big list.
-Step 2: React starts the heavy work of filtering the list.
-Step 3 (The Overlap): While the list is still rendering, you type "B".
-Step 4 (Bitmasking at work): Because Lanes are bits, React’s internal state for that component now looks like: 0b00001001 (Both the Sync bit and the Transition bit are "checked").
-Step 5: React sees the `SyncLane` bit is active, pauses the list rendering, and updates the text box so the typing feels instant.
-Step 6: Once the "B" is shown, React looks at its "checkboxes," sees the `TransitionLane` is still checked, and finishes the list filtering.
-
-
-### Common Lane Priority Levels
-
-React categorizes work into several key buckets: 
-
-**Lane Name           Priority	Typical Use Case**
-SyncLane              Highest 	Discrete user events like clicks or keyboard presses that need an immediate response.
-InputContinuousLane	  High	    Constant user feedback like scrolling, dragging, or mouse movements.
-DefaultLane	          Normal  	Standard `setState` updates not wrapped in any specific priority.
-TransitionLanes	      Low	      Updates wrapped in `startTransition` or `useTransition`. These are interruptible by higher lanes.
-IdleLane	            Lowest  	Background tasks like pre-fetching analytics or offscreen content.
-
-## The Core Concept: "The Two Trees"
-
-React Fiber doesn't just have one tree; it **maintains two at all times**. They are **linked together** via the `.alternate` property. 
-
-1. **The Current Tree**: This represents the UI that is currently on the screen. It is "flushed" and visible to the user.
-2. **The Work-in-Progress (WIP) Tree**: This is the "draft" tree where React prepares the next state**. It is built in the background and is not visible to the user. 
-
-### Why Use Double Buffering?
-
-Without it, React would have to update the live DOM as it goes. This causes two major problems:
-
-1. **Tearing (Partial UI)**: If React updates the "Header" but gets interrupted before updating the "Footer," the user sees an inconsistent, "torn" UI.
-2. **Responsiveness**: If React is busy updating the live tree, it can't easily "pause" to handle a user click without leaving the UI in a broken, half-finished state.
-
-### The "Switch" Mechanism
-
-The transition from the "Draft" to the "Live" tree happens in two main steps:
-
-- **Step 1**: Cloning (Reconciliation Phase): When an update starts, React walks through the Current tree and clones nodes into the WIP tree. It reuses the old objects where possible (using the alternate pointer) to save memory.
-- **Step 2**: The Commit (Commit Phase): Once the WIP tree is 100% finished and ready, React simply swaps a pointer. The "Root" of the app, which used to point to the Current tree, now points to the WIP tree.
-
-Instantly, the WIP tree becomes the Current tree.
-The old Current tree is now ready to be reused for the next update. 
 
 ## The rules of hooks
 There are two main usage rules the React core team stipulates you need to follow to use hooks which they outline in the hooks proposal documentation.
@@ -616,4 +543,3 @@ root.render(<App />);
   {createPortal(children, domNode, key?)}
 </div>
 ```
-

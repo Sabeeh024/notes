@@ -481,8 +481,7 @@ Load resources only when needed.
 
 ## Tree Shaking
 
-Remove unused exports during build. Requires ES Modules (`import` /
-`export`).
+Remove unused exports during build. Requires ES Modules (`import` / `export`).
 
 ## Minification
 
@@ -498,17 +497,11 @@ Module pattern
 Currying vs Partial Application
 Map vs WeakMap
 WeakMap keys are garbage collectible.
-Callback hell, promises, async await
 Implement Promise from scratch
 Polyfill bind()
 How to optimize large-scale JS apps
 How to prevent memory leaks
-Explain microfrontend architecture
 What happens when you type a URL in browser?
 Modular code structure
 Dependency inversion
 Clean architecture principles
-State management patterns
-SSR vs CSR
-Microservices + BFF layer
-Web security (XSS, CSRF, CORS)

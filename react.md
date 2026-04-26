@@ -488,3 +488,99 @@ root.render(<App />);
   {createPortal(children, domNode, key?)}
 </div>
 ```
+
+## Bundle Optimization
+
+### Code Splitting
+
+JavaScript, CSS and HTML can be split into smaller chunks. This enables sending the minimal code required to provide value upfront, improving page-load times. The rest can be loaded on demand.
+
+| Strategy              | Description                                                          | Best Use Case                                |
+| --------------------- | -------------------------------------------------------------------- | -------------------------------------------- |
+| Entry Point Splitting | Manually separating code into different files via build tool config. | Multi-page applications (MPAs).              |
+| Dynamic Imports       | Loading code only when a specific function or component is called.   | Heavy libraries (like D3 or PDF generators). |
+| Route-based Splitting | Loading specific chunks based on the current URL.                    | Single Page Applications (SPAs).             |
+
+### Lazy Loading 
+
+Lazy loading is a performance optimization technique that defers loading non-critical resources until they are actually needed. Instead of loading everything upfront, the application fetches code-split chunks or assets only when the user interacts with a specific feature or navigates to a certain part of the app.
+
+### Tree Shaking 
+
+A technique used by modern bundlers to remove unused exports from JavaScript modules. It works by analyzing ES Modules `import / export` and eliminating code that is never imported or used.
+
+### Minification
+
+Minification is the process of reducing file size by removing unnecessary characters without changing functionality. 
+
+### Dead Code Elimination (DCE)
+
+Dead Code Elimination removes code that will never be executed.
+
+Ex: 
+```js
+var b = 9;
+if (false) {
+  console.log("This will never run");
+}
+```
+
+### Dependency Auditing
+
+Large bundles are often the result of "invisible" heavy lifting from third-party libraries. Use a bundle analyzer to find out exactly which libraries are hogging space
+
+- Replace Heavy Hitters: Swap large libraries for lightweight alternatives. For example, use `date-fns` or `dayjs` instead of `moment.js`, or `preact` for smaller footprints.
+- Modular Imports: Avoid importing entire libraries if you only need one function:
+```js
+import { _ } from 'lodash'; // bad
+import debounce from 'lodash/debounce'; // good
+```
+
+### Modern Compression and Formats
+
+The way you serve the code is as important as the code itself.
+
+- Brotli vs. Gzip: Use Brotli compression for text assets. It typically results in `15-20%` smaller files than Gzip.
+
+## Error Boundaries
+
+An Error Boundary is a class component that catches JavaScript errors anywhere in its child component tree, logs those errors, and displays a fallback UI instead of crashing the entire application.
+
+### 1. Evolution: Stack vs. Fiber
+
+The shift from React 15 (Stack Reconciler) to React 16+ (Fiber Architecture) is what made reliable error handling possible.
+
+| Feature      | Pre-Fiber (React 15)                | Post-Fiber (React 16+)                 |
+| ------------ | ----------------------------------- | -------------------------------------- |
+| Mechanism    | Synchronous Call Stack              | Virtual Stack (Linked List)            |
+| Failure Mode | Fatal; corrupts internal state      | Interruptible; can "pause" and recover |
+| Cleanup      | "Half-rendered" UI (messy DOM)      | Graceful unmounting of failed subtrees |
+| Key Method   | unstable_handleError (Experimental) | componentDidCatch (Stable)             |
+
+### 2. Why Fiber Solved the Problem
+
+Fiber’s architecture separates the rendering process into two distinct phases, allowing React to handle errors without breaking the browser:
+
+Phase 1: Reconciliation (Render Phase): Asynchronous and interruptible. If a component throws an error here, React simply stops, discards the "dirty" work, and searches up the tree for a boundary before touching the real DOM.
+Phase 2: Commit Phase: Synchronous and permanent. Because Phase 1 caught the error, the UI remains stable and never enters a "corrupted" state in the DOM.
+
+### 3. Core Lifecycle Methods
+
+To create an Error Boundary, a class component must implement one (or both) of these:
+
+1. `static getDerivedStateFromError(error)`
+- Purpose: To update state so the next render shows the fallback UI.
+- Timing: Called during the "render" phase.
+
+2. `componentDidCatch(error, info)`
+- Purpose: To perform side effects, such as logging the error to a service (e.g., Sentry).
+- Timing: Called during the "commit" phase.
+
+### 4. Limitations (What it doesn't catch)
+
+Error Boundaries are powerful but do not catch errors in:
+
+- Event handlers (use try/catch inside the handler instead).
+- Asynchronous code (e.g., setTimeout or requestAnimationFrame).
+- Server-side rendering.
+- Errors thrown in the boundary itself (rather than its children).

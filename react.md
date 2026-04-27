@@ -584,3 +584,16 @@ Error Boundaries are powerful but do not catch errors in:
 - Asynchronous code (e.g., setTimeout or requestAnimationFrame).
 - Server-side rendering.
 - Errors thrown in the boundary itself (rather than its children).
+
+## `<Suspense>`
+
+Suspense lets you catch "thrown" Promises from its children and displays a fallback UI until the data is ready.
+
+```js
+<Suspense fallback={<Loading />}>
+  <ProfileDetails />
+</Suspense>
+```
+
+- The "Reset" Caveat: If a component suspends on its initial mount, React discards the attempt and retries from scratch.  
+- Transitions & Deferred Values: Updates wrapped in startTransition or useDeferredValue will keep the old UI visible instead of showing the fallback.

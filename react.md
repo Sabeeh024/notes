@@ -589,11 +589,81 @@ Error Boundaries are powerful but do not catch errors in:
 
 Suspense lets you catch "thrown" Promises from its children and displays a fallback UI until the data is ready.
 
+Transitions & Deferred Values: Updates wrapped in `startTransition` or `useDeferredValue` will keep the old UI visible instead of showing the fallback.
+
 ```js
 <Suspense fallback={<Loading />}>
   <ProfileDetails />
 </Suspense>
 ```
 
-- The "Reset" Caveat: If a component suspends on its initial mount, React discards the attempt and retries from scratch.  
-- Transitions & Deferred Values: Updates wrapped in startTransition or useDeferredValue will keep the old UI visible instead of showing the fallback.
+## Compound Components
+
+A React pattern where multiple components work together to form a single unit, sharing implicit state via `Context API`.
+
+### The "Big Three" Parts
+
+- The Provider (Parent): Manages the state (`e.g., isOpen, activeIndex`).
+- The Context: The "invisible wire" connecting the parent to any nested child.
+- The Consumers (Children): Sub-components that read the context to change their behavior or UI.
+
+### Benefits
+
+| Feature          | Without Pattern                                  | With Compound Components                                    |
+| ---------------- | ------------------------------------------------ | ----------------------------------------------------------- |
+| State Management | You manage it manually every time.               | Component manages itself internally.                        |
+| Customization    | Hard. Requires "prop soup" for every variation.  | Easy. Just wrap parts in any HTML/CSS.                      |
+| Readability      | Messy (either huge objects or repetitive props). | Clean. Looks like standard HTML.                            |
+| Maintenance      | Changing logic requires updating every instance. | Update the Context logic once; all menus fix automatically. |
+
+### Example 
+
+```js
+// 1. The Context
+const MenuContext = createContext();
+
+// 2. The Parent (Root)
+export function Menu({ children }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const toggle = () => setIsOpen((prev) => !prev);
+  const close = () => setIsOpen(false);
+
+  return (
+    <MenuContext.Provider value={{ isOpen, toggle, close }}>
+      <div className="menu-root" style={{ position: "relative" }}>
+        {children}
+      </div>
+    </MenuContext.Provider>
+  );
+}
+
+// 3. The Toggle/Target (The Button)
+Menu.Target = function Button({ children }) {
+  const { toggle } = useContext(MenuContext);
+  return <button onClick={toggle}>{children}</button>;
+};
+
+// 4. The List (The Dropdown Wrapper)
+Menu.Dropdown = function List({ children }) {
+  const { isOpen } = useContext(MenuContext);
+  if (!isOpen) return null;
+
+  return (
+    <ul className="menu-list" style={{ position: "absolute", border: "1px solid #ccc" }}>
+      {children}
+    </ul>
+  );
+};
+
+// 5. The Item (Individual Actions)
+Menu.Item = function Item({ children, onClick }) {
+  const { close } = useContext(MenuContext);
+
+  const handleClick = () => {
+    onClick?.(); // Run the passed action
+    close();     // Automatically close menu after clicking an item
+  };
+
+  return <li onClick={handleClick} className="menu-item">{children}</li>;
+};
+```

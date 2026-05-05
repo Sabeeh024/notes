@@ -1,153 +1,275 @@
 # Client-Server Communication Patterns
 
-## REST 
+---
 
-REST is the standard "request-response" model where the client asks for something, the server sends it back, and the connection closes. It is stateless—meaning the server treats every request as an independent event and stores no session data—and relies on standard HTTP methods (GET, POST, PUT, DELETE).
+## 1. REST
 
-## Request-Response (Short Polling)
+**REST** is the standard **request-response model**:
 
-In short polling, the client repeatedly sends requests to the server at fixed intervals (e.g., every 5 seconds) to check for new data.
+- Client requests data
+- Server responds
+- Connection closes
 
-Best for: Scenarios where real-time updates aren't critical and the server resources are low.
+**Key Characteristics:**
 
-The Catch: It’s inefficient. Most requests return empty, wasting bandwidth and CPU.
+- Stateless (no session stored)
+- Uses HTTP methods:
+  - `GET`
+  - `POST`
+  - `PUT`
+  - `DELETE`
 
-## Long Polling
+---
 
-In long polling, the client sends a request, but the server **holds the request open** until new data is available or a timeout occurs.
+## 2. Request-Response (Short Polling)
 
-Best for: Basic chat apps or notifications where you want "near" real-time updates without a complex setup.
+Client repeatedly sends requests at fixed intervals (e.g., every 5 seconds).
 
-The Catch: Keeping many connections "hanging" can be intensive for the server.
+**Best For:**
+- Non real-time systems
+- Low server complexity
 
-## Server-Sent Events (SSE)
+**The Catch:**
+- Inefficient
+- Most responses are empty → wasted bandwidth & CPU
 
-SSE is a **one-way street**. The client establishes a long-term connection, and the server pushes data to the client whenever something happens.
+---
 
-Best for: Real-time dashboards, stock tickers, or social media feeds where the user doesn't need to "talk back" instantly.
+## 3. Long Polling
 
-The Catch: It is unidirectional. If the client needs to send data back, it has to use a separate REST request.
+Client sends request → server **holds it open** until:
 
-## WebSocket
+- New data arrives OR
+- Timeout occurs
 
-WebSockets provide a **full-duplex (two-way)** communication channel over a single, long-lived connection.
+**Best For:**
+- Chat apps
+- Notifications (near real-time)
 
-How it works: It starts as an HTTP request ("Handshake") and upgrades to a WebSocket protocol. Both the client and server can send messages at any time.
+**The Catch:**
+- Many open connections → server strain
 
-Best for: High-frequency, low-latency applications like multiplayer gaming, collaborative editing (like Google Docs), or high-speed trading platforms.
+---
 
-The Catch: It's more complex to implement and requires servers that can handle thousands of persistent "open" connections.
+## 4. Server-Sent Events (SSE)
 
-### The "Zombie" Connection Problem
+**One-way communication (Server → Client)**
 
-A Zombie Connection is a connection that stays "open" on a server after the client has already disconnected or crashed (could be due to Wifi/network drops), the Server may not receive a "Close" frame.
+- Long-lived connection
+- Server pushes updates
 
-#### Solution (Ping Pong / Heartbeat): 
+**Best For:**
+- Dashboards
+- Stock tickers
+- Social feeds
 
-Ping: One party (usually the server) sends a "Ping" frame to the client.
-Pong: The client is required by the WebSocket protocol to respond immediately with a "Pong" frame.
-Termination: If the server doesn't receive a Pong within a specific timeframe, it assumes the connection is a "zombie" and closes it.
+**The Catch:**
+- Unidirectional
+- Client must use separate REST calls to send data
 
-### The "Thundering Herd" Problem
+---
 
-The “Thundering Herd” problem in WebSockets is a performance issue that happens when a large number of clients react simultaneously to the same event, overwhelming your server or infrastructure.
+## 5. WebSocket
 
-#### Solution: 
+**Full-duplex (two-way) communication** over a single persistent connection.
 
-Implement Exponential Backoff with Jitter (randomized delay) to prevent DDOSing your own infrastructure.
-- Exponential Backoff: The waiting time grows exponentially, e.g., 1s, 2s, 4s, 8s.... 
-- Jitter: A random value added to the backoff time (e.g., `1000ms + random(0–200ms)`) to stagger requests.
-- Capping: Setting a maximum wait time (e.g., 60s) to avoid excessively long delays.
+### How It Works
 
-## SSE vs WebSocket
+- Starts as HTTP request (**Handshake**)
+- Upgrades to WebSocket protocol
+- Both client & server can send messages anytime
 
-| Feature                | SSE (Server-Sent Events)          | WebSockets                           |
-| ---------------------- | --------------------------------- | ------------------------------------ |
-| Communication          | Unidirectional (Server → Client)  | Bidirectional (Full-Duplex)          |
-| Protocol               | Standard HTTP                     | Binary Protocol (upgraded from HTTP) |
-| Data Format            | Text-only (UTF-8)                 | Binary & Text                        |
-| Automatic Reconnection | Built-in by default               | Must be implemented manually         |
-| Firewall Friendly      | Yes (It's just standard HTTP)     | Sometimes blocked by strict proxies  |
-| Max Connections        | Limited by browser (6 per domain) | Much higher limits                   |
+**Best For:**
+- Multiplayer games
+- Collaborative tools (Google Docs-like)
+- High-frequency trading apps
 
+**The Catch:**
+- Complex implementation
+- Requires handling thousands of persistent connections
 
-## Lifecycle Comparison
+---
 
-| Action           | Standard REST | Short Polling   | Long Polling                | SSE           | WebSockets     |
-| ---------------- | ------------- | --------------- | --------------------------- | ------------- | -------------- |
-| TCP Handshake    | Every request | Every poll      | Every poll/event            | Once at start | Once at start  |
-| HTTP Headers     | Every request | Every poll      | Every poll/event            | Once at start | Once (Upgrade) |
-| Connection State | Closed        | Closed          | Closed after data / timeout | Kept Alive    | Kept Alive     |
-| Data Flow        | Client Pull   | Client Pull     | Client Pull (delayed)       | Server Push   | Bi-directional |
-| Ideal Wait Time  | None          | Fixed (e.g. 5s) | Variable (Hanging)          | Continuous    | Continuous     |
+### 5.1 The "Zombie" Connection Problem
 
-## Push Notifications
+A **Zombie Connection** stays open after client disconnects (e.g., network drop).
 
-Push notifications allow a server to send data to a client application (mobile or desktop) even when the application is in the background or completely closed.
+#### Solution: Ping / Pong (Heartbeat)
 
-Unlike the other patterns, this usually requires a third-party intermediary (Push Service) to manage the delivery to the device.
+- **Ping** → Sent by server
+- **Pong** → Client must respond immediately
+- **Termination** → No pong → connection closed
 
-How it works:
+---
 
-- Registration: The client app asks the OS (iOS/Android/Browser) for a unique "push token."
-- Storage: The client sends this token to your server, which stores it in a database.
-- Trigger: When an event occurs, your server sends a message + the token to a Push Service (like Firebase Cloud Messaging for Android or Apple Push Notification service for iOS).
-- Delivery: The Push Service routes the message to the specific device.
+### 5.2 The "Thundering Herd" Problem
 
-Best for: User engagement, critical alerts (breaking news, transaction alerts), and messaging apps where the user isn't currently looking at the screen.
+Occurs when many clients react simultaneously → overload.
 
-The Catch: Delivery is "best-effort" (not 100% guaranteed) and you are dependent on third-party infrastructure.
+#### Solution: Exponential Backoff + Jitter
 
-# Peer-to-peer (P2P) Communication Patterns
+- **Exponential Backoff**
+  - `1s → 2s → 4s → 8s`
 
-## WebRTC
+- **Jitter**
+  - Random delay:
+    - `1000ms + random(0–200ms)`
 
-WebRTC (Web Real-Time Communication) enables Peer-to-Peer (P2P) audio, video, and data exchange directly between browsers with sub-second latency.
+- **Capping**
+  - Max wait time (e.g., `60s`)
 
-The most common P2P pattern in the browser. Because peers sit behind NATs and firewalls, they cannot "find" each other automatically.
+---
 
-### 1. The Core APIs
+## 6. SSE vs WebSocket
 
-- `getUserMedia`: Accesses the camera and microphone.
-- `RTCPeerConnection`: Manages the connection, security, and streaming.
-- `RTCDataChannel`: Sends non-media data (chat, files, game stats) directly.
+| Feature                | SSE (Server-Sent Events)         | WebSockets                          |
+|-----------------------|----------------------------------|-------------------------------------|
+| Communication         | Unidirectional (Server → Client) | Bidirectional (Full-Duplex)         |
+| Protocol              | HTTP                             | Binary (Upgraded from HTTP)         |
+| Data Format           | Text (UTF-8)                     | Text + Binary                       |
+| Auto Reconnect        | Built-in                         | Manual                              |
+| Firewall Friendly     | Yes                              | Sometimes blocked                   |
+| Max Connections       | ~6 per domain                    | Much higher                         |
 
-### 2. Establishing a Connection
+---
 
-Since peers are usually hidden behind firewalls, they connect via a three-step process:
+## 7. Lifecycle Comparison
 
-#### A. Signaling (The Introduction)
+| Action           | REST         | Short Polling | Long Polling          | SSE          | WebSockets     |
+|------------------|--------------|---------------|-----------------------|--------------|----------------|
+| TCP Handshake    | Every request| Every poll    | Every poll/event      | Once         | Once           |
+| HTTP Headers     | Every request| Every poll    | Every poll/event      | Once         | Once (Upgrade) |
+| Connection State | Closed       | Closed        | Closed after response | Kept Alive   | Kept Alive     |
+| Data Flow        | Client Pull  | Client Pull   | Delayed Pull          | Server Push  | Bi-directional |
+| Ideal Wait Time  | None         | Fixed         | Variable              | Continuous   | Continuous     |
 
-Peers use a Signaling Server (usually via WebSockets) to swap "business cards" called SDP (Session Description Protocol). They agree on:
+---
 
-- Media types (Video/Audio) and Codecs (VP9, H.264).
-- Security keys and connection capabilities. 
+## 8. Push Notifications
 
-#### B. ICE (The Negotiator)
+Allows server to send data even when app is **backgrounded or closed**.
 
-ICE (Interactive Connectivity Establishment) is a framework used to find the best path between peers. It gathers "candidates" (potential connection paths) and tests them in order of efficiency.
+**Requires third-party push services**
 
-#### C. NAT Traversal (The "Open Doors")
+### How It Works
 
-**Network Address Translation (NAT)** is a technique used by routers to map multiple private, local IP addresses to a single public IP address for internet access. 
+1. **Registration**
+   - The client app asks the OS (iOS/Android/Browser) for a unique "push token."
 
-To get through routers and firewalls, ICE uses two types of servers:
+2. **Storage**
+   - The client sends this token to your server, which stores it in a database.
 
-1. **STUN (Session Traversal Utilities for NAT)**: Tells you your Public IP address. It allows for a direct P2P connection. (Used 80% of the time).
-   How it works: Your device sends a request to a STUN server. The server looks at the incoming packet and replies: "Hey, I see you're coming from Public IP 203.0.113.5 on Port 50001."
-   
-2. **TURN (Traversal Using Relays around NAT)**: Acts as a Relay. If a direct path is blocked, data flows through this server. It is a fallback and not true P2P.
-   How it works: If STUN fails, the peers give up on a direct connection. Instead, they both connect to a TURN Server. User A sends their video to the TURN server, and the server "turns" (relays) it to User B.
+3. **Trigger**
+   - Server sends message + token to push service
 
-### 3. Architecture Models
+4. **Delivery**
+   - Service routes to device
 
-| Model                      | How it Works                                                         | Best For                          |
-| -------------------------- | -------------------------------------------------------------------- | --------------------------------- |
-| Mesh (Pure P2P)            | Every user sends their video to everyone else.                       | 1-on-1 calls, small groups        |
-| SFU (Selective Forwarding) | Each user sends one stream to a server, which forwards it to others. | Zoom, Google Meet, large rooms    |
-| MCU (Multipoint Control)   | The server mixes all videos into one single stream for you.          | Low-power devices, legacy systems |
+**Example Services:**
+- Firebase Cloud Messaging (Android)
+- Apple Push Notification Service (iOS)
 
-### 4. Security & Performance
+**Best For:**
+- Alerts
+- Engagement
+- Messaging apps
 
-- Encryption: Mandatory and "always-on" using SRTP (Secure Real-time Transport Protocol) for media and Datagram Transport Layer Security (Data).
-- Protocol: Primarily uses UDP (User Datagram Protocol) for speed (dropping lost packets is better than lagging in a live call).
+**The Catch:**
+- Not guaranteed delivery
+- Depends on third-party infra
+
+---
+
+# Peer-to-Peer (P2P) Communication Patterns
+
+---
+
+## 1. WebRTC
+
+**WebRTC** enables real-time **P2P audio, video, and data** between browsers.
+
+### Why It's Needed
+
+- Peers are behind NAT/firewalls
+- Cannot connect directly without assistance
+
+---
+
+### 1.1 Core APIs
+
+- `getUserMedia` → Camera & mic access  
+- `RTCPeerConnection` → Connection management  
+- `RTCDataChannel` → Data transfer  
+
+---
+
+### 1.2 Establishing a Connection
+
+#### A. Signaling (Introduction)
+
+Peers exchange **SDP (Session Description Protocol)** via a signaling server.
+
+They agree on:
+
+- Media types (audio/video)
+- Codecs (`VP9`, `H.264`)
+- Security keys
+
+---
+
+#### B. ICE (Negotiation)
+
+**ICE (Interactive Connectivity Establishment)**:
+
+- Collects connection paths (**candidates**)
+- Tests them for best route
+
+---
+
+#### C. NAT Traversal
+
+**NAT (Network Address Translation)** maps local IPs → public IP.
+
+##### STUN (Direct Connection)
+
+- Reveals public IP
+- Enables direct P2P (~80% cases)
+
+**Flow:**
+- Request → STUN server
+- Response → "Your public IP is X"
+
+---
+
+##### TURN (Relay Fallback)
+
+- Used when direct connection fails
+- Acts as relay server
+
+**Flow:**
+- Both peers connect to TURN
+- Data routed via server
+
+---
+
+### 1.3 Architecture Models
+
+| Model        | How It Works                          | Best For                     |
+|--------------|---------------------------------------|------------------------------|
+| Mesh         | Everyone sends to everyone            | 1:1, small groups            |
+| SFU          | Server forwards streams               | Zoom, Google Meet            |
+| MCU          | Server mixes streams into one         | Low-power / legacy systems   |
+
+---
+
+### 1.4 Security & Performance
+
+- **Encryption**
+  - Always-on
+  - Uses:
+    - `SRTP`
+    - `DTLS`
+
+- **Protocol**
+  - Uses `UDP`
+  - Drops packets instead of delaying
